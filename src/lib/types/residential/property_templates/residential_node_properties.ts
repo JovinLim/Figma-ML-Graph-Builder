@@ -3,6 +3,7 @@ import { GraphNodeProperties } from "../../../core";
 export interface ResidentialGraphNodeProperties extends GraphNodeProperties {
     cat: string;
     pcat: string;
+    gid?: number;
 }
 
 export const ResidentialNodeCategories = {
@@ -51,13 +52,13 @@ export const ResidentialNodeCategories = {
     'Kitchenette' : 'kitchenette',
 }
 
-export const ExternalUnitCategories = [
-    'shaft',
-    'other_unit',
-    'lobby',
-    'private_lift_lobby',
-    'lobby_lift',
-    'ac',
-    'rc',
-    'external',
-]
+export const ExternalUnitCategories = {
+    'Adjacent Unit' : 'other_unit',
+    'Other Unit' : 'other_unit',
+    'Lobby' : 'lobby',
+    'Private Lift Lobby' : 'private_lift_lobby',
+    'Adjacent Lobby Lift' : 'lobby_lift',
+    'AC Ledge' : 'ac',
+    'RC Ledge' : 'rc',
+    'External' : 'external',
+}

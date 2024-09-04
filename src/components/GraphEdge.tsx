@@ -8,7 +8,7 @@ import { GraphFigmaNodesInterface } from '../lib/core';
 
 
 const GraphEdge: React.FC<ResidentialGraphEdgeData> = ({ graphId, sourceNodeId, targetNodeId, edgeProperties, id }) => {
-  const { graphs, updateGraphData, setCurrentGraph, setCurrentGraphEdges, currentGraphEdges, highlightedNodes, setHighlightedNodes } = useGraphContext();
+  const { graphs, updateGraphData, setCurrentGraph, setCurrentGraphEdges, currentGraphEdges, highlightedNodes, setHighlightedNodes, updateGraphEdgeProperty } = useGraphContext();
   const [highlighted, setHighlighted] = useState<boolean>(false);
   const inputRef = useRef<HTMLDivElement>(null);
 
@@ -21,25 +21,28 @@ const GraphEdge: React.FC<ResidentialGraphEdgeData> = ({ graphId, sourceNodeId, 
         }
       });  // Extract the highlight_id
 
-      const edgeLineFId = edgeLine.highlight_id;
-      if (edgeLineFId) {
-        // Remove the node from highlighted nodes
-        setHighlightedNodes((prevNodes) =>
-          prevNodes.filter((node_) => !(node_.type == 'edge' && node_.id == id))
-        );
-    
-        // Remove edge id from current edges
-        setCurrentGraphEdges((prevEdges) => prevEdges.filter((edgeId) => edgeId !== id));
-    
-        // Emit the dehighlight event
-        emit<DehighlightNodesHandler>('DEHIGHLIGHT_NODES', [edgeLineFId]);
-    
-        // Update the input field UI
-        inputRef.current?.classList.replace('bg-gray-500', 'bg-gray-100');
-    
-        // Set the highlighted state to false
-        setHighlighted(false);
+      // Remove edge id from current edges
+      setCurrentGraphEdges((prevEdges) => prevEdges.filter((edgeId) => edgeId !== id));
+
+      // Update the input field UI
+      inputRef.current?.classList.replace('bg-gray-500', 'bg-gray-100');
+
+      // Set the highlighted state to false
+      setHighlighted(false);
+
+      if (edgeLine){
+        const edgeLineFId = edgeLine.highlight_id;
+        if (edgeLineFId) {
+          // Remove the node from highlighted nodes
+          setHighlightedNodes((prevNodes) =>
+            prevNodes.filter((node_) => !(node_.type == 'edge' && node_.id == id))
+          );
+      
+          // Emit the dehighlight event
+          emit<DehighlightNodesHandler>('DEHIGHLIGHT_NODES', [edgeLineFId]);
+        }
       }
+
     }
 
     else {
@@ -73,27 +76,29 @@ const GraphEdge: React.FC<ResidentialGraphEdgeData> = ({ graphId, sourceNodeId, 
   const handleCatChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     const newCatValue = (event.target as HTMLSelectElement).value; // Get new value from the select input
     if (!graph) return;
-
-    // Update the edge's cat property
-    const updatedEdges = graph.edges.map((edge) => {
-      if (edge.id === id) {
-        return {
-          ...edge,
-          edgeProperties: {
-            ...edge.edgeProperties,
-            cat: newCatValue,
-          },
-        };
-      }
-      return edge;
-    });
-
-    // Update the graph context with the updated edges
-    updateGraphData(graphId, [], updatedEdges);
+  
+    // Find the edge to update
+    const edgeToUpdate = graph.edges.find((edge) => edge.id === id);
+  
+    if (edgeToUpdate) {
+      // Create an updated edge object with the new category
+      const updatedEdge: ResidentialGraphEdgeData = {
+        ...edgeToUpdate,
+        edgeProperties: {
+          ...edgeToUpdate.edgeProperties,
+          cat: newCatValue,
+        },
+      };
+  
+      // Use the previous function to update the graph with the new edge properties
+      updateGraphEdgeProperty(graph.id, updatedEdge);
+    } else {
+      console.error(`Edge with ID ${id} not found in graph.`);
+    }
   };
 
   useEffect(() => {
-
+    
   }, [graphs, edgeProperties, currentGraphEdges])
 
   return (
@@ -101,7 +106,7 @@ const GraphEdge: React.FC<ResidentialGraphEdgeData> = ({ graphId, sourceNodeId, 
       <span>
         Edge from <strong>{(sNode_ as ResidentialGraphNodeData)?.nodeProperties?.cat}</strong> to <strong>{(tNode_ as ResidentialGraphNodeData)?.nodeProperties?.cat}</strong>
       </span>
-      <div className="mt-2">
+      <div className="mt-2 flex flex-row" style={{alignItems:'center', alignContent:'center'}}>
         <label className="font-bold mr-2">Cat:</label>
         <select value={(currentEdge as ResidentialGraphEdgeData)?.edgeProperties.cat} onChange={handleCatChange} className="border p-1 rounded">
           {/* Dynamically generate options from ResidentialEdgeCategories */}

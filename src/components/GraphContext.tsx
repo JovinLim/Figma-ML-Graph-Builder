@@ -46,6 +46,11 @@ interface GraphContextType {
     deleteGraph: (
       graphId: string
     ) => void;
+
+    updateGraphEdgeProperty:(
+      graphId:string,
+      newEdge: GraphEdgeData
+    ) => void
   }
 
 // Create context
@@ -74,11 +79,52 @@ export const GraphProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     );
   }
 
+  const updateGraphEdgeProperty = (graphId: string, newEdge: GraphEdgeData) => {
+    setGraphs((prevGraphs) =>
+      prevGraphs.map((graph) => {
+        if (graph.id !== graphId) return graph; // Skip other graphs
+  
+        // Check if both source and target nodes exist in the graph
+        const updatedEdges = [...graph.edges];
+  
+        // Check if the edge already exists
+        const existingEdgeIndex = updatedEdges.findIndex(
+          (edge) =>
+            (edge.sourceNodeId === newEdge.sourceNodeId &&
+              edge.targetNodeId === newEdge.targetNodeId)
+        );
+  
+        if (existingEdgeIndex !== -1) {
+          // Check if the existing edge properties are different from the new edge properties
+          const existingEdge = updatedEdges[existingEdgeIndex];
+  
+          if (JSON.stringify(existingEdge.edgeProperties) !== JSON.stringify(newEdge.edgeProperties)) {
+            // Update the existing edge's properties
+            updatedEdges[existingEdgeIndex] = {
+              ...existingEdge,
+              edgeProperties: newEdge.edgeProperties,
+            };
+            console.log(`Edge between ${newEdge.sourceNodeId} and ${newEdge.targetNodeId} was updated with new properties.`);
+          } else {
+            console.log(`Edge between ${newEdge.sourceNodeId} and ${newEdge.targetNodeId} already exists with the same properties.`);
+          }
+        } else {
+          // Notify the user if the edge does not exist
+          console.log(`Edge between ${newEdge.sourceNodeId} and ${newEdge.targetNodeId} does not exist in graph ${graphId}.`);
+          emit<NotifyHandler>(
+            "NOTIFY",
+            true,
+            `Edge between ${newEdge.sourceNodeId} and ${newEdge.targetNodeId} does not exist in graph. Please add it first.`
+          );
+        }
+  
+        return { ...graph, edges: updatedEdges };
+      })
+    );
+  };
+
   // Function to update edges in a graph
-  const updateGraphEdges = (
-    graphId: string,
-    newEdges: GraphEdgeData[]
-  ) => {
+  const updateGraphEdges = (graphId: string, newEdges: GraphEdgeData[]) => {
     setGraphs((prevGraphs) =>
       prevGraphs.map((graph) => {
         if (graph.id !== graphId) return graph; // Skip other graphs
@@ -86,34 +132,48 @@ export const GraphProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         // Check if both source and target nodes exist in the graph
         const updatedNodes = [...graph.nodes];
         const updatedEdges = [...graph.edges];
-
+  
         newEdges.forEach((newEdge) => {
-          console.log(newEdge)
           const sourceNodeExists = updatedNodes.some((node) => node.id === newEdge.sourceNodeId);
           const targetNodeExists = updatedNodes.some((node) => node.id === newEdge.targetNodeId);
+  
           if (!sourceNodeExists || !targetNodeExists) {
             // Post a message to alert the user if a node does not exist
             const missingNode = !sourceNodeExists ? newEdge.sourceNodeId : newEdge.targetNodeId;
             console.log(`Node with ID ${missingNode} does not exist in graph ${graphId}.`);
-            emit<NotifyHandler>("NOTIFY", true, "Node does not exist in graph. Please add it to the graph first.");
+            emit<NotifyHandler>(
+              "NOTIFY",
+              true,
+              "Node does not exist in graph. Please add it to the graph first."
+            );
             return; // Skip adding this edge
           }
   
-          // If both nodes exist, update the edges in the graph
+          // Check if the edge already exists
           const existingEdgeIndex = updatedEdges.findIndex(
             (edge) =>
-              edge.sourceNodeId === newEdge.sourceNodeId && edge.targetNodeId === newEdge.targetNodeId
+              (edge.sourceNodeId === newEdge.sourceNodeId &&
+                edge.targetNodeId === newEdge.targetNodeId)
           );
   
           if (existingEdgeIndex !== -1) {
-            // Update the existing edge
-            updatedEdges[existingEdgeIndex] = newEdge;
-          } else {
-            // Add new edge if it doesn't exist
-            updatedEdges.push(newEdge);
+            // Check if the existing edge properties are different from the new edge properties
+            const existingEdge = updatedEdges[existingEdgeIndex];
+  
+            if (JSON.stringify(existingEdge.edgeProperties) !== JSON.stringify(newEdge.edgeProperties)) {
+              // Replace the existing edge with the new edge
+              updatedEdges[existingEdgeIndex] = newEdge;
+              console.log(`Edge between ${newEdge.sourceNodeId} and ${newEdge.targetNodeId} was updated with new properties.`);
+            } else {
+              console.log(`Edge between ${newEdge.sourceNodeId} and ${newEdge.targetNodeId} already exists with the same properties.`);
+            }
+            return; // Skip adding this edge if it already exists with the same properties
           }
   
-          // **Add the reverse edge**
+          // If both nodes exist and edge does not already exist, update the edges in the graph
+          updatedEdges.push(newEdge);
+  
+          // Add the reverse edge
           const reverseEdgeIndex = updatedEdges.findIndex(
             (edge) =>
               edge.sourceNodeId === newEdge.targetNodeId && edge.targetNodeId === newEdge.sourceNodeId
@@ -125,7 +185,7 @@ export const GraphProvider: React.FC<{ children: ReactNode }> = ({ children }) =
               ...newEdge,
               sourceNodeId: newEdge.targetNodeId,
               targetNodeId: newEdge.sourceNodeId,
-              id: generateUUID()  // Generate a new unique ID for the reverse edge
+              id: generateUUID(), // Generate a new unique ID for the reverse edge
             });
           }
   
@@ -159,6 +219,7 @@ export const GraphProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       })
     );
   };
+  
 
   const updateGraphNodes = (graphId: string, newNodes: GraphNodeData[]) => {
     setGraphs((prevGraphs) =>
@@ -255,6 +316,7 @@ export const GraphProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       updateGraphNodes, 
       updateGraphProps,
       deleteGraph,
+      updateGraphEdgeProperty,
     }}>
       {children}
     </GraphContext.Provider>

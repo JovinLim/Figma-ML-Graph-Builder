@@ -12,6 +12,7 @@ const GraphNode: React.FC<ResidentialGraphNodeData> = ({ id, label, graphId, nod
   const [nCatValue, setNCatValue] = useState<string>('');
   const [pInputValue, setPInputValue] = useState<string>(nodeProperties?.pcat || '');
   const [pCatValue, setPCatValue] = useState<string>('');
+  const [GIDValue, setGIDValue] = useState<number|string>("");
   const [isNDropdownOpen, setIsNDropdownOpen] = useState<boolean>(false);
   const [isPDropdownOpen, setIsPDropdownOpen] = useState<boolean>(false);
   const [isOpen, setIsOpen] = useState<boolean>(false);
@@ -24,8 +25,28 @@ const GraphNode: React.FC<ResidentialGraphNodeData> = ({ id, label, graphId, nod
   const graph = graphs.find((g) => g.id === graphId);
   const currentNode = graph?.nodes.find((n) => n.id === id);
 
+  const toggleDropdown = (type:string) => {
+    switch (type){
+      case 'category':
+        setIsNDropdownOpen(!isNDropdownOpen);
+        break;
+      case 'parent-category':
+        setIsPDropdownOpen(!isPDropdownOpen);
+        break;
+    }
+  }
+
   const selectNode = () => {
     if (currentGraphNodes?.includes(id)){ // Find node rect highlight ID and edges, de-highlight all of them
+
+      // Set the highlighted state to false
+      setHighlighted(false);
+
+      // Remove node id from current graph nodes
+      setCurrentGraphNodes((prevGraphNodes) => prevGraphNodes.filter((nodeId) => nodeId !== id));
+
+      inputRef.current?.classList.replace('bg-gray-100', 'bg-white');
+
       const fNodes_ = highlightedNodes.filter((node) => {
         // Collect nodes with type 'node' that match the id
         if (node.type === 'node' && node.id === id) {
@@ -40,21 +61,16 @@ const GraphNode: React.FC<ResidentialGraphNodeData> = ({ id, label, graphId, nod
         return false; // Filter out nodes that don't match any criteria
       });
 
-      const fNodeHighlightIds = fNodes_.map((node:any) => node.highlight_id)
-      if (fNodeHighlightIds) {
-        setHighlightedNodes((prevNodes) =>
-          prevNodes.filter((node_) => !(node_.type == 'edge' && (node_.sourceId == id || node_.targetId == id)) || ! (node_.type == 'node' && node_.id == id))
-        );
-
-        // Remove node id from current graph nodes
-        setCurrentGraphNodes((prevGraphNodes) => prevGraphNodes.filter((nodeId) => nodeId !== id));
-
-        // Dehighlight nodes
-        emit<DehighlightNodesHandler>('DEHIGHLIGHT_NODES', fNodeHighlightIds);
-        inputRef.current?.classList.replace('bg-gray-100', 'bg-white');
-
-        // Set the highlighted state to false
-        setHighlighted(false);
+      if (fNodes_) {
+        const fNodeHighlightIds = fNodes_.map((node:any) => node.highlight_id)
+        if (fNodeHighlightIds) {
+          setHighlightedNodes((prevNodes) =>
+            prevNodes.filter((node_) => !(node_.type == 'edge' && (node_.sourceId == id || node_.targetId == id)) || ! (node_.type == 'node' && node_.id == id))
+          );
+          
+          // Dehighlight nodes
+          emit<DehighlightNodesHandler>('DEHIGHLIGHT_NODES', fNodeHighlightIds);
+        }
       }
     }
 
@@ -99,8 +115,18 @@ const GraphNode: React.FC<ResidentialGraphNodeData> = ({ id, label, graphId, nod
     categoryName.toLowerCase().includes(pInputValue.toLowerCase())
   );
 
+  const handleGroupIDInputChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const target_ = event.target as HTMLInputElement;
+    const value = Number(target_.value);
+  
+    // Check if the value is a valid integer
+    const gidVal = Number.isInteger(value) ? value : "Please input a valid integer number";
+  
+    setGIDValue(gidVal);
+  };
+
   // Handle input change for text field
-  const handleInputChange = (event: ChangeEvent<HTMLInputElement>) => {
+  const handleSelectInputChange = (event: ChangeEvent<HTMLInputElement>) => {
     const target_ = event.target as HTMLInputElement;
     const prop_ = target_.getAttribute('data-prop');
 
@@ -273,71 +299,93 @@ const GraphNode: React.FC<ResidentialGraphNodeData> = ({ id, label, graphId, nod
                 <p>Graph ID: {graphId}</p>
 
                 {nodeProperties && (
-                  <div className="mt-2 relative">
-                    <div> 
+                  <div className="mt-2 relative" style={{display:'flex', flexDirection:'column', gap:'5px'}}>
+                    <div onClick={() => toggleDropdown('category')} style={{display:'flex', flexDirection:'row', position:'relative', justifyContent:'space-between'}}>
                       {/* Text Input for Filtering Options */}
                       <label className="font-bold mr-2">Category:</label>
-                      <input
-                        type="text"
-                        value={nInputValue} // Shows only the user's input
-                        onChange={handleInputChange}
-                        className="border p-1 rounded"
-                        style={{border: '1px solid black'}}
-                        onFocus={() => setIsNDropdownOpen(true)} // Show dropdown on input focus
-                        data-prop="category"
-                        id='node-category-input'
-                      />
+                      <div style={{display:'flex', flexDirection:'column', position:'relative'}}>
+                        <input
+                          type="text"
+                          value={nInputValue} // Shows only the user's input
+                          onChange={handleSelectInputChange}
+                          className="border p-1 rounded"
+                          style={{ border: '1px solid black' }}
+                          data-prop="category"
+                          id="node-category-input"
+                        />
 
-                      {/* Dropdown for Filtered Options */}
-                      {isNDropdownOpen && filteredCategoryOptions.length > 0 && (
-                        <div className="absolute left-0 mt-1 w-full bg-white border border-gray-300 rounded shadow-md z-10">
-                          {filteredCategoryOptions.map(([categoryName, categoryValue]) => (
-                            <div
-                              key={categoryValue}
-                              onClick={handleOptionSelect}
-                              className="cursor-pointer p-2 hover:bg-gray-100"
-                              data-prop="category"
-                              data-cat={categoryName}
-                            >
-                              {categoryName}
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                        {/* Dropdown for Filtered Options */}
+                        {isNDropdownOpen && filteredCategoryOptions.length > 0 && (
+                          <div
+                            className="absolute left-0 mt-1 w-full bg-white border border-gray-300 rounded shadow-md z-10"
+                            style={{ maxHeight: '200px', overflowY: 'auto', position:'absolute', top:'20px', zIndex:'1000'}} // Add max-height and overflow styles
+                          >
+                            {filteredCategoryOptions.map(([categoryName, categoryValue]) => (
+                              <div
+                                key={categoryValue}
+                                onClick={handleOptionSelect}
+                                className="cursor-pointer p-2 hover:bg-gray-100"
+                                data-prop="category"
+                                data-cat={categoryName}
+                              >
+                                {categoryName}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
                     </div>
 
-                    <div> 
-                      {/* Text Input for Filtering Options */}
+                    <div onClick={() => toggleDropdown('parent-category')} style={{display:'flex', flexDirection:'row', position:'relative', justifyContent:'space-between'}}>
                       <label className="font-bold mr-2">Parent Category:</label>
+                      <div style={{display:'flex', flexDirection:'column', position:'relative'}}>
+                        {/* Text Input for Filtering Options */}
+                        <input
+                          type="text"
+                          value={pInputValue} // Shows only the user's input
+                          onChange={handleSelectInputChange}
+                          className="border p-1 rounded"
+                          style={{ border: '1px solid black' }}
+                          data-prop="parent-category"
+                        />
+
+                        {/* Dropdown for Filtered Options */}
+                        {isPDropdownOpen && filteredParentCategoryOptions.length > 0 && (
+                          <div
+                            className="absolute left-0 mt-1 w-full bg-white border border-gray-300 rounded shadow-md z-10"
+                            style={{ maxHeight: '200px', overflowY: 'auto', position:'absolute', top:'20px', zIndex:'1000' }} // Add max-height and overflow styles
+                          >
+                            {filteredParentCategoryOptions.map(([categoryName, categoryValue]) => (
+                              <div
+                                key={categoryValue}
+                                onClick={handleOptionSelect}
+                                className="cursor-pointer p-2 hover:bg-gray-100"
+                                data-prop="parent-category"
+                                data-cat={categoryName}
+                              >
+                                {categoryName}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                    </div>
+
+                    <div style={{display:'flex', flexDirection:'row', position:'relative', justifyContent:'space-between'}}>
+                      {/* Text Input for Filtering Options */}
+                      <label className="font-bold mr-2">Group ID:</label>
                       <input
                         type="text"
-                        value={pInputValue} // Shows only the user's input
-                        onChange={handleInputChange}
+                        value={GIDValue} // Shows only the user's input
+                        onChange={handleGroupIDInputChange}
                         className="border p-1 rounded"
-                        style={{border: '1px solid black'}}
-                        onFocus={() => setIsPDropdownOpen(true)} // Show dropdown on input focus
+                        style={{ border: '1px solid black' }}
                         data-prop="parent-category"
                       />
-
-                      {/* Dropdown for Filtered Options */}
-                      {isPDropdownOpen && filteredParentCategoryOptions.length > 0 && (
-                        <div className="absolute left-0 mt-1 w-full bg-white border border-gray-300 rounded shadow-md z-10">
-                          {filteredParentCategoryOptions.map(([categoryName, categoryValue]) => (
-                            <div
-                              key={categoryValue}
-                              onClick={handleOptionSelect}
-                              className="cursor-pointer p-2 hover:bg-gray-100"
-                              data-prop="parent-category"
-                              data-cat={categoryName}
-                            >
-                              {categoryName}
-                            </div>
-                          ))}
-                        </div>
-                      )}
                     </div>
                   </div>
-
                 )}
               </div>
             </div>
@@ -401,6 +449,13 @@ const GraphNode: React.FC<ResidentialGraphNodeData> = ({ id, label, graphId, nod
                       return null
                     }
                 })()}
+
+            <button
+              onClick={() => setIsOpen(false)}
+              className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+            >
+              Collapse
+            </button>
 
           </div>
         </div>

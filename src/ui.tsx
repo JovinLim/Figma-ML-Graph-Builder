@@ -13,13 +13,14 @@ import { highlight, languages } from 'prismjs'
 import Editor from 'react-simple-code-editor'
 import '!./output.css'
 import styles from './styles.css'
-import { AddNodeHandler, DehighlightAllNodesHandler, DehighlightNodesHandler, ExportGraphJSON, InsertCodeHandler, NotifyHandler } from './types'
+import { AddNodeHandler, AutoEdgeHandler, DehighlightAllNodesHandler, DehighlightNodesHandler, ExportGraphJSON, InsertCodeHandler, NotifyHandler } from './types'
 import Graph from './components/Graph'
 import { generateUUID } from './lib/utils'
-import { DefaultResidentialEdgeCategory, ResidentialGraphData, ResidentialGraphEdgeData, ResidentialGraphJSONData, ResidentialGraphNodeData, ResidentialGraphNodeProperties, ResidentialGraphNodeJSONData, ResidentialGraphEdgeJSONData, ResidentialGraphProperties, ExternalUnitCategories } from './lib/types'
+import { DefaultResidentialEdgeCategory, ResidentialGraphData, ResidentialGraphEdgeData, ResidentialGraphJSONData, ResidentialGraphNodeData, ResidentialGraphNodeProperties, ResidentialGraphNodeJSONData, ResidentialGraphEdgeJSONData, ResidentialGraphProperties, ExternalUnitCategories, ResidentialEdgeCategories } from './lib/types'
 import { FigmaNodeGeometryData, GraphData, GraphEdgeData, GraphNodeData } from './lib/core'
 import { GraphProvider, useGraphContext } from './components/GraphContext'
 import React from 'preact/compat'
+import { ValidateResidentialUnitGraph } from './lib/types/residential/graph/validation'
 
 console.log("Starting Graph Builder Plugin...")
 const debug = true;
@@ -225,31 +226,103 @@ const InputContainer: React.FC<InputContainerProps> = () => {
 const EventDispatcher: React.FC = () => {
 
   const { graphs, updateGraphData, setHighlightedNodes, mode, setMode, currentGraph } = useGraphContext();
+
+  const handleOneClickEdges = (event: Event) => {
+    const { graphId } = (event as CustomEvent).detail;
+    if (mode==='one-click') {
+      const graph_ = graphs.find((g) => g.id === graphId);
+      if (graph_){
+        const nodes = graph_.nodes;
+        for (let n=0; n<nodes.length; n++){
+            const node_ = nodes[n];
+            const gNodeIds = nodes
+            .filter((node) => node.id !== node_.id)
+            .map((node) => node.id);
+            emit<AutoEdgeHandler>('AUTO_EDGE', graphId, node_.id, gNodeIds);
+        }
+      }
+      setMode('default')
+    }
+  }
+
+  const handleKeyPress = (event: KeyboardEvent) => {
+    if (event.key === 'Enter') {
+      switch(mode) {
+        case 'add-nodes':
+          if (currentGraph){
+            const nodesAddedEvent = new CustomEvent('nodes-added', {
+              detail: {
+                currentGraph,
+              },
+            });
+            window.dispatchEvent(nodesAddedEvent);
+          }
+          break;
+        case 'add-edges':
+          if (currentGraph){
+            const edgesAddedEvent = new CustomEvent('edges-added', {
+              detail: {
+                currentGraph,
+              },
+            });
+            window.dispatchEvent(edgesAddedEvent);
+          }
+          break;
+      }
+    }
+  };
+
   // Handle messages from the Figma plugin
   window.onmessage = (event) => {
     console.log('Received message:', event);
 
     // Ensure the message format is correct
-    var { type, nodes, graphId } = event.data.pluginMessage;
+    var { type, rNodes, graphId } = event.data.pluginMessage;
 
     if (type === 'add-nodes') {
       // Dispatch 'receive-nodes-data' event
       const receivedNodesDataEvent = new CustomEvent('receive-nodes-data', {
         detail: {
           graphId,
-          nodes,
+          rNodes,
         },
       });
       window.dispatchEvent(receivedNodesDataEvent);
     }
 
-    else if (type === 'add-edges' || type==='auto-edges') {
+    else if (type === 'add-edges' || type === 'auto-edges') {
       console.log(`Adding edges to graph ${graphId}`);
       const newEdges = [] as ResidentialGraphEdgeData[];
-      for (let n=0; n<nodes.length; n++){
-        const node=nodes[n];
+    
+      for (let n = 0; n < rNodes.length; n++) {
+        const node = rNodes[n];
         const { tNodeId, tNodeName, graphId, nodeId } = node; // Destructure node data
         
+        const graph_ = graphs.find((g) => g.id===graphId);
+
+        // Find source and target nodes using their IDs
+        const sourceNode = (graph_ as ResidentialGraphData).nodes.find((n:ResidentialGraphNodeData) => n.id === nodeId);
+        const targetNode = (graph_ as ResidentialGraphData).nodes.find((n:ResidentialGraphNodeData) => n.id === tNodeId);
+    
+        let edgeCat = DefaultResidentialEdgeCategory['Direct Access']; // Default edge category
+        if (sourceNode && targetNode) {
+          const sourceCat = sourceNode.nodeProperties?.cat;
+          const targetCat = targetNode.nodeProperties?.cat;
+
+          // Check if one of the node categories is in ExternalUnitCategories and the other is not
+          if (
+            sourceCat &&
+            targetCat &&
+            ((ExternalUnitCategories[sourceCat as keyof typeof ExternalUnitCategories] && 
+              !ExternalUnitCategories[targetCat as keyof typeof ExternalUnitCategories]) ||
+             (!ExternalUnitCategories[sourceCat as keyof typeof ExternalUnitCategories] && 
+              ExternalUnitCategories[targetCat as keyof typeof ExternalUnitCategories]))
+          ) {
+            // If one of the nodes is in ExternalUnitCategories and the other is not, assign 'Adjacent' category
+            edgeCat = ResidentialEdgeCategories['Adjacent'];
+          }
+        }
+    
         // Construct new edge data
         const newEdge: ResidentialGraphEdgeData = {
           id: generateUUID(),
@@ -257,17 +330,19 @@ const EventDispatcher: React.FC = () => {
           sourceNodeId: nodeId, // Source node is the nodeId
           targetNodeId: tNodeId, // Target node is the tNodeId
           edgeProperties: {
-            cat: DefaultResidentialEdgeCategory['Direct Access'], // Default edge property value
+            cat: edgeCat, // Set the determined edge category
           },
         };
-        newEdges.push(newEdge)
+    
+        newEdges.push(newEdge);
       }
+    
       updateGraphData(graphId, [], newEdges);
     }
 
     else if (type === 'highlight-nodes'){
-      console.log(`Highlighting ${nodes.length} nodes.`)
-      setHighlightedNodes((prevNodes) => [...prevNodes, ...nodes]);
+      console.log(`Highlighting ${rNodes.length} nodes.`)
+      setHighlightedNodes((prevNodes) => [...prevNodes, ...rNodes]);
     }
 
     else if (type === 'export-graph-json'){
@@ -291,7 +366,7 @@ const EventDispatcher: React.FC = () => {
           const gNode_ = graphNodes_[n];
         
           // Find the corresponding Figma node data
-          const fNode_ = nodes.find((n_: any) => {
+          const fNode_ = rNodes.find((n_: any) => {
             return n_.id === gNode_.id;
           });
         
@@ -404,7 +479,7 @@ const EventDispatcher: React.FC = () => {
         // Instantiate graph global info
         const graphTotalArea = Object.values(nodesJsonData).reduce((totalArea, node) => {
           // Check if the node's category is not in ExternalUnitCategories before including its area
-          if (!ExternalUnitCategories.includes(node.pcat ? node.pcat : node.cat)) {
+          if (!ExternalUnitCategories[(node.pcat ? node.pcat : node.cat) as keyof typeof ExternalUnitCategories]) {
             return totalArea + (node.width * node.depth);
           }
           return totalArea; // If it is in the ExternalUnitCategories, do not add its area
@@ -438,38 +513,19 @@ const EventDispatcher: React.FC = () => {
 
   // Handle keyboard events
   useEffect(() => {
-    const handleKeyPress = (event: KeyboardEvent) => {
-      if (event.key === 'Enter') {
-        switch(mode) {
-          case 'add-nodes':
-            if (currentGraph){
-              const nodesAddedEvent = new CustomEvent('nodes-added', {
-                detail: {
-                  currentGraph,
-                },
-              });
-              window.dispatchEvent(nodesAddedEvent);
-            }
-          case 'add-edges':
-            if (currentGraph){
-              const edgesAddedEvent = new CustomEvent('edges-added', {
-                detail: {
-                  currentGraph,
-                },
-              });
-              window.dispatchEvent(edgesAddedEvent);
-            }
-        }
-      }
-    };
 
     window.addEventListener('keydown', handleKeyPress);
+
+
+    window.addEventListener('trigger-oneclick-edges', handleOneClickEdges);
+
 
     // Clean up event listener on unmount
     return () => {
       window.removeEventListener('keydown', handleKeyPress);
+      window.removeEventListener('trigger-oneclick-edges', handleOneClickEdges);
     };
-  }, []);
+  }, [mode,graphs]);
 
   return (
     null
@@ -509,13 +565,16 @@ const GraphActionButtons: React.FC<GraphActionButtonsProps> = () => {
 
   const exportAsJSON = () => {
     graphs.forEach(graph => {
-      const nodeIds = graph.nodes.map(n => n.id);
-      const edgesData = graph.edges.map(e => ({'id': e.id, 'source':e.sourceNodeId, 'target':e.targetNodeId}))
-      const figmaNodeInterface = {
-        nodes: nodeIds,
-        edges: edgesData
+      const validation = ValidateResidentialUnitGraph(graph as ResidentialGraphData);
+      if (validation) {
+        const nodeIds = graph.nodes.map(n => n.id);
+        const edgesData = graph.edges.map(e => ({'id': e.id, 'source':e.sourceNodeId, 'target':e.targetNodeId}));
+        const figmaNodeInterface = {
+          nodes: nodeIds,
+          edges: edgesData
+        };
+        emit<ExportGraphJSON>('EXPORT_GRAPH_JSON', graph.id, figmaNodeInterface);
       }
-      emit<ExportGraphJSON>('EXPORT_GRAPH_JSON', graph.id, figmaNodeInterface)
     })
   }
   return (

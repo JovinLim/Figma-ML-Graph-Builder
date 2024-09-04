@@ -2,9 +2,9 @@ import React, { useCallback, useEffect, useState } from 'react';
 import GraphEdge from './GraphEdge';
 import { h, RefObject } from 'preact'
 import GraphNode from './GraphNode';
-import { AddNodeHandler, AddNodesGroupHandler, DehighlightAllNodesHandler, DehighlightNodesHandler, HighlightNodesHandler, NotifyHandler } from '../types';
+import { AddNodeHandler, AddNodesGroupHandler, AutoEdgeHandler, DehighlightAllNodesHandler, DehighlightNodesHandler, HighlightNodesHandler, NotifyHandler } from '../types';
 import { emit } from '@create-figma-plugin/utilities';
-import { ResidentialGraphData, ResidentialGraphNodeData } from '../lib/types';
+import { ResidentialGraphData, ResidentialGraphNodeData, ResidentialNodeCategories } from '../lib/types';
 import { useGraphContext } from './GraphContext';
 import { GraphFigmaNodesInterface } from '../lib/core';
 import { Checkbox } from '@create-figma-plugin/ui';
@@ -38,58 +38,82 @@ const Graph: React.FC<ResidentialGraphData> = ({ id, nodes, edges, graphProperti
         emit<HighlightNodesHandler>('HIGHLIGHT_NODES', nodes_to_highlight);
     }
 
-    // Function to handle adding new nodes by manual selection
+    // Function to handle adding new nodes
     const handleAddNode = (type:string) => {
         switch (type){
             case 'manual':
                 setMode('add-nodes');
+                break;
             case 'group':
                 setMode('add-nodes-group');
-        }   
-        if (type=='manual'){
-            setMode('add-nodes');
+                break;
+            case 'one-click':
+                setMode('one-click');
+                break;
         }
-
         emit<NotifyHandler>('NOTIFY', false, "Please select objects in the Figma file. Press confirm to add nodes.");
     };
 
     const confirmAddNode = () => {
-        if (mode == 'add-nodes') {emit<AddNodeHandler>('ADD_NODE', id) }
-        else if (mode == 'add-nodes-group') {emit<AddNodesGroupHandler>('ADD_NODES_BY_GROUP', id)}
+        switch (mode) {
+            case 'add-nodes':
+                emit<AddNodeHandler>('ADD_NODE', id);
+                break;
+            case 'add-nodes-group':
+            case 'one-click':
+                emit<AddNodesGroupHandler>('ADD_NODES_BY_GROUP', id);
+                break;
+        }
     }
 
     const cancelAddNode = () => {
         setMode('default');
     }
 
-    useEffect(() => {
-        const handleNodesAdded = (event: Event) => {
-            const { graphId, nodes } = (event as CustomEvent).detail;
-            if (graphId === id) {
-                const newNodes = [] as ResidentialGraphNodeData[];
-                for (let n=0; n<nodes.length; n++){
-                    const node = nodes[n];
-                    const { fNodeId, fNodeName, graphId } = node; // Destructure node data
+    const handleNodesAdded = async (event: Event) => {
+        const { graphId, rNodes } = (event as CustomEvent).detail;
+        if (graphId === id) {
+            const newNodes = [] as ResidentialGraphNodeData[];
+            for (let n=0; n<rNodes.length; n++){
+                const rNode = rNodes[n];
+                const { fNodeId, fNodeName, graphId } = rNode; // Destructure node data
 
-                    // Create new node data to pass to the graph component
-                    const newNode: ResidentialGraphNodeData = { id: fNodeId, label: fNodeName, graphId: graphId };
-                    if (useNodeLabels){
-                        newNode.nodeProperties = {
-                            edges: [],
-                            cat: fNodeName,
-                            pcat: ""
-                        };
-                    }
-                    newNodes.push(newNode)
+                // Create new node data to pass to the graph component
+                const newNode: ResidentialGraphNodeData = { id: fNodeId, label: fNodeName, graphId: graphId };
+                if (useNodeLabels){
+                    const cat_ = Object.keys(ResidentialNodeCategories).find(key => key.toLowerCase() === fNodeName.toLowerCase()) || "";
+                    newNode.nodeProperties = {
+                        edges: [],
+                        cat: cat_,
+                        pcat: ""
+                    };
                 }
-                // Update the corresponding graph component
-                updateGraphData(graphId, newNodes, []); // Pass new node to be added
-                console.log(`Adding nodes to graph ${graphId}`)
-                setMode('default');
-                setNodesDropdownOpen(true)
+                newNodes.push(newNode)
             }
-          };
-    
+            // Update the corresponding graph component
+            await updateGraphData(graphId, newNodes, []); // Pass new node to be added
+            console.log(`Added nodes to graph ${graphId}`)
+            
+            if (mode == 'one-click'){ // Auto edges for all nodes
+                setTimeout(() => {  // Delay dispatch to allow state to update
+                    const triggerOneClickEdgesEvent = new CustomEvent('trigger-oneclick-edges', {
+                      detail: {
+                        graphId,
+                      },
+                    });
+                    window.dispatchEvent(triggerOneClickEdgesEvent);
+                  }, 100); // Adjust delay as needed
+            }
+            else {
+                setMode('default');
+            }
+
+            setNodesDropdownOpen(true)
+        }
+    };
+
+
+    useEffect(() => {
         // Add event listener
         window.addEventListener('receive-nodes-data', handleNodesAdded);
     
@@ -97,7 +121,8 @@ const Graph: React.FC<ResidentialGraphData> = ({ id, nodes, edges, graphProperti
         return () => {
           window.removeEventListener('receive-nodes-data', handleNodesAdded);
         };
-    }, [id, useNodeLabels]); // Dependencies include 'id' to reattach if the graph id changes
+
+    }, [id, useNodeLabels, nodes, edges, graphs, mode]); // Dependencies include 'id' to reattach if the graph id changes
 
     return (
         <div id={`graph-${id}`} className="bg-white p-4 shadow-md rounded-md">
@@ -160,7 +185,7 @@ const Graph: React.FC<ResidentialGraphData> = ({ id, nodes, edges, graphProperti
                 </div>
 
                 {/* Buttons to Add Nodes */}
-                <div className="mt-4 space-x-2" style={{display:'flex', flexDirection:'row'}}>
+                <div className="mt-4 space-x-2" style={{display:'flex', flexDirection:'row', height:'auto'}}>
                     <button
                         onClick={() => handleAddNode('manual')}
                         className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
@@ -175,10 +200,18 @@ const Graph: React.FC<ResidentialGraphData> = ({ id, nodes, edges, graphProperti
                         Add Nodes by Group
                     </button>
 
+                    <button
+                        onClick={() => handleAddNode('one-click')}
+                        className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                    >
+                        One-Click
+                    </button>
+
                     {(() => {
                         switch(mode){
                             case 'add-nodes':
                             case 'add-nodes-group':
+                            case 'one-click':
                                 return (
                                     <div className="space-x-2" style={{display:'flex', flexDirection:'row', textAlign:'center', alignItems:'center'}}>
                                         <div className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600" style={{display:'flex', flexDirection:'row', alignItems:'center'}}>

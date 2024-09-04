@@ -21,6 +21,7 @@ export default function () {
   })
 
   on<AddNodeHandler>('ADD_NODE', function (graphId: string) {
+    console.log('add node')
     // Check if there are currently selected nodes in the Figma file
     const selectedNodes = figma.currentPage.selection;
     
@@ -35,7 +36,7 @@ export default function () {
 
       figma.ui.postMessage({
         type: 'add-nodes',
-        nodes: nodesData, // Send the list of selected nodes
+        rNodes: nodesData, // Send the list of selected nodes
         graphId: graphId,
       });
 
@@ -48,6 +49,7 @@ export default function () {
   })
 
   on<AddNodesGroupHandler>('ADD_NODES_BY_GROUP', function (graphId: string) {
+    console.log('add nodes by group')
     // Check if there are currently selected nodes in the Figma file
     const selectedNodes = figma.currentPage.selection;
   
@@ -81,7 +83,7 @@ export default function () {
   
         figma.ui.postMessage({
           type: 'add-nodes',
-          nodes: nodesData, // Send the list of selected nodes
+          rNodes: nodesData, // Send the list of selected nodes
           graphId: graphId,
         });
   
@@ -110,7 +112,7 @@ export default function () {
       
       figma.ui.postMessage({
         type: 'add-edges',
-        nodes: nodesData, // Send the list of selected nodes
+        rNodes: nodesData, // Send the list of selected nodes
         graphId: graphId,
       });
 
@@ -174,7 +176,7 @@ export default function () {
     // Send the list of edges to the UI
     figma.ui.postMessage({
       type: 'auto-edges',
-      nodes: nodesData, // Send the list of selected nodes
+      rNodes: nodesData, // Send the list of selected nodes
       graphId: graphId,
     });
   });
@@ -201,7 +203,7 @@ export default function () {
     
     figma.ui.postMessage({
       type: 'export-graph-json',
-      nodes: allNodesInformation,
+      rNodes: allNodesInformation,
       graphId: graphId
     });
 
@@ -309,7 +311,7 @@ export default function () {
     // Post the message only after all operations are complete
     figma.ui.postMessage({
       type: 'highlight-nodes',
-      nodes: allNodesInformation,
+      rNodes: allNodesInformation,
       graphId: "",
     });
   });
