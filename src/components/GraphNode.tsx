@@ -1,4 +1,4 @@
-import React, { ChangeEvent, useEffect, useState } from 'react';
+import React, { ChangeEvent, useEffect, useRef, useState } from 'react';
 import { h, RefObject } from 'preact'
 import { ResidentialGraphData, ResidentialGraphEdgeData, ResidentialGraphNodeData, ResidentialGraphNodeProperties, ResidentialNodeCategories } from '../lib/types';
 import { useGraphContext } from './GraphContext';
@@ -16,50 +16,78 @@ const GraphNode: React.FC<ResidentialGraphNodeData> = ({ id, label, graphId, nod
   const [isPDropdownOpen, setIsPDropdownOpen] = useState<boolean>(false);
   const [isOpen, setIsOpen] = useState<boolean>(false);
   const [localMode, setLocalMode] = useState<string>("default");
-  const {graphs, updateGraphData, highlightedNodes, setCurrentGraph, setCurrentNodes} = useGraphContext();
+  const {graphs, updateGraphData, highlightedNodes, setCurrentGraph, setCurrentGraphNodes, currentGraphNodes, setHighlightedNodes} = useGraphContext();
+  const [highlighted, setHighlighted] = useState<boolean>(false);
+  const inputRef = useRef<HTMLDivElement>(null);
 
   // Find the current graph and node from context
   const graph = graphs.find((g) => g.id === graphId);
   const currentNode = graph?.nodes.find((n) => n.id === id);
 
-  const deselectNode = () => {
-    const highlightedNodeIds = highlightedNodes.map(node => node.highlight_id);
-    emit<DehighlightNodesHandler>('DEHIGHLIGHT_NODES', highlightedNodeIds);
-  }
-
   const selectNode = () => {
-    const highlightedNodeIds = highlightedNodes.map(node => node.highlight_id);
-    emit<DehighlightNodesHandler>('DEHIGHLIGHT_NODES', highlightedNodeIds);
-    const graph_ : GraphData | undefined = graphs.find((g) => {
-      return g.id === graphId;
-    })
-
-    const nodes_to_highlight = {
-      'nodes': [] as string[],
-      'edges': [] as {
-        source : string,
-        target : string
-      }[]
-    } as GraphFigmaNodesInterface;
-
-    if (nodes_to_highlight['nodes']){
-      nodes_to_highlight['nodes'].push(id)
-    }
-
-    if (graph_) {
-      if (nodes_to_highlight['edges']){
-        const edges_ = graph_.edges as ResidentialGraphEdgeData[]
-        for (let e in edges_){
-          const edge_ = edges_[e]
-          if (edge_.sourceNodeId == id || edge_.targetNodeId == id){
-            nodes_to_highlight['edges'].push({source: edge_.sourceNodeId, target:edge_.targetNodeId})
-          }
+    if (currentGraphNodes?.includes(id)){ // Find node rect highlight ID and edges, de-highlight all of them
+      const fNodes_ = highlightedNodes.filter((node) => {
+        // Collect nodes with type 'node' that match the id
+        if (node.type === 'node' && node.id === id) {
+          return true;
         }
+        
+        // Collect edges connected to the node with id as source or target
+        if (node.type === 'edge' && (node.sourceId === id || node.targetId === id)) {
+          return true;
+        }
+    
+        return false; // Filter out nodes that don't match any criteria
+      });
+
+      const fNodeHighlightIds = fNodes_.map((node:any) => node.highlight_id)
+      if (fNodeHighlightIds) {
+        setHighlightedNodes((prevNodes) =>
+          prevNodes.filter((node_) => !(node_.type == 'edge' && (node_.sourceId == id || node_.targetId == id)) || ! (node_.type == 'node' && node_.id == id))
+        );
+
+        // Remove node id from current graph nodes
+        setCurrentGraphNodes((prevGraphNodes) => prevGraphNodes.filter((nodeId) => nodeId !== id));
+
+        // Dehighlight nodes
+        emit<DehighlightNodesHandler>('DEHIGHLIGHT_NODES', fNodeHighlightIds);
+        inputRef.current?.classList.replace('bg-gray-100', 'bg-white');
+
+        // Set the highlighted state to false
+        setHighlighted(false);
       }
     }
-    setCurrentGraph(graphId);
-    setCurrentNodes([id])
-    emit<HighlightNodesHandler>('HIGHLIGHT_NODES', nodes_to_highlight);
+
+    else {
+      setCurrentGraphNodes((cNodes) => [...cNodes, id]);
+      inputRef?.current?.classList.replace('bg-white', 'bg-gray-100');
+      const graph_ = graphs.find((g) => g.id===graphId);
+      if (graph_){
+        const nodes_to_highlight = {
+          'nodes': [] as string[],
+          'edges': [] as {
+            source : string,
+            target : string
+          }[]
+        } as GraphFigmaNodesInterface;
+        
+        if (nodes_to_highlight['nodes']){
+          nodes_to_highlight['nodes'].push(id)
+        }
+
+        if (nodes_to_highlight['edges']){
+          const edges_ = graph_.edges as ResidentialGraphEdgeData[]
+          for (let e in edges_){
+            const edge_ = edges_[e]
+            if (edge_.sourceNodeId == id || edge_.targetNodeId == id){
+              nodes_to_highlight['edges'].push({id: edge_.id, source: edge_.sourceNodeId, target:edge_.targetNodeId})
+            }
+          }
+        }
+        emit<HighlightNodesHandler>('HIGHLIGHT_NODES', nodes_to_highlight);
+        setCurrentGraph(graphId);
+      }
+    }
   }
 
   // Filter options dynamically based on user input for category or parent category
@@ -222,7 +250,7 @@ const GraphNode: React.FC<ResidentialGraphNodeData> = ({ id, label, graphId, nod
   }, [graphs, nodeProperties])
 
   return (
-    <div id={`node-${id}`} className="node bg-white p-2 shadow-md rounded-md">
+    <div id={`node-${id}`} ref={inputRef} className="node bg-white p-2 shadow-md rounded-md">
       {/* Node header with toggle button */}
       <button
         className="w-full text-left font-bold text-md mb-1"

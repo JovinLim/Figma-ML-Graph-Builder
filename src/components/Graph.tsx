@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import GraphEdge from './GraphEdge';
 import { h, RefObject } from 'preact'
 import GraphNode from './GraphNode';
-import { AddNodeHandler, DehighlightNodesHandler, HighlightNodesHandler, NotifyHandler } from '../types';
+import { AddNodeHandler, AddNodesGroupHandler, DehighlightAllNodesHandler, DehighlightNodesHandler, HighlightNodesHandler, NotifyHandler } from '../types';
 import { emit } from '@create-figma-plugin/utilities';
 import { ResidentialGraphData, ResidentialGraphNodeData } from '../lib/types';
 import { useGraphContext } from './GraphContext';
@@ -14,11 +14,10 @@ const Graph: React.FC<ResidentialGraphData> = ({ id, nodes, edges, graphProperti
     const [useNodeLabels, setUseNodeLabels] = useState<boolean>(false);
     const [nodesDropdownOpen, setNodesDropdownOpen] = useState<boolean>(false);
     const [edgesDropdownOpen, setEdgesDropdownOpen] = useState<boolean>(false);
-    const {graphs, setCurrentGraph, setHighlightedNodes, highlightedNodes, mode, setMode, updateGraphData} = useGraphContext();
+    const {graphs, setCurrentGraph, setHighlightedNodes, highlightedNodes, mode, setMode, updateGraphData, deleteGraph} = useGraphContext();
 
     const handleCheckboxChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const target_ = event.target as HTMLInputElement;
-        console.log(target_.checked)
         setUseNodeLabels(target_.checked);
       };
 
@@ -39,14 +38,28 @@ const Graph: React.FC<ResidentialGraphData> = ({ id, nodes, edges, graphProperti
         emit<HighlightNodesHandler>('HIGHLIGHT_NODES', nodes_to_highlight);
     }
 
-    // Function to handle adding a new node by emitting an event
-    const handleAddNode = () => {
-        setMode('add-nodes');
+    // Function to handle adding new nodes by manual selection
+    const handleAddNode = (type:string) => {
+        switch (type){
+            case 'manual':
+                setMode('add-nodes');
+            case 'group':
+                setMode('add-nodes-group');
+        }   
+        if (type=='manual'){
+            setMode('add-nodes');
+        }
+
         emit<NotifyHandler>('NOTIFY', false, "Please select objects in the Figma file. Press confirm to add nodes.");
     };
 
     const confirmAddNode = () => {
-        emit<AddNodeHandler>('ADD_NODE', id)
+        if (mode == 'add-nodes') {emit<AddNodeHandler>('ADD_NODE', id) }
+        else if (mode == 'add-nodes-group') {emit<AddNodesGroupHandler>('ADD_NODES_BY_GROUP', id)}
+    }
+
+    const cancelAddNode = () => {
+        setMode('default');
     }
 
     useEffect(() => {
@@ -149,31 +162,51 @@ const Graph: React.FC<ResidentialGraphData> = ({ id, nodes, edges, graphProperti
                 {/* Buttons to Add Nodes */}
                 <div className="mt-4 space-x-2" style={{display:'flex', flexDirection:'row'}}>
                     <button
-                        onClick={handleAddNode}
+                        onClick={() => handleAddNode('manual')}
                         className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
                     >
                         Add Nodes
                     </button>
 
+                    <button
+                        onClick={() => handleAddNode('group')}
+                        className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                    >
+                        Add Nodes by Group
+                    </button>
+
                     {(() => {
                         switch(mode){
                             case 'add-nodes':
+                            case 'add-nodes-group':
                                 return (
                                     <div className="space-x-2" style={{display:'flex', flexDirection:'row', textAlign:'center', alignItems:'center'}}>
-                                        <Checkbox
-                                        id='use-node-labels'
-                                        name='use-node-labels'
-                                        value={useNodeLabels}
-                                        onChange={handleCheckboxChange}
-                                        >
-                                        Use Node Labels
-                                        </Checkbox>
+                                        <div className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600" style={{display:'flex', flexDirection:'row', alignItems:'center'}}>
+                                            <input
+                                                id='use-node-labels'
+                                                type='checkbox'
+                                                name='use-node-labels'
+                                                checked={useNodeLabels}
+                                                onChange={handleCheckboxChange}
+                                                style={{ border: 'solid 1px #ccc', appearance: 'auto' }}
+                                            />
+                                            <div style={{marginLeft:'2px'}}>
+                                                Use Object Name
+                                            </div>
+                                        </div>
 
                                         <button
                                         onClick={confirmAddNode}
                                         className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
                                         >
                                         Confirm
+                                        </button>
+
+                                        <button
+                                        onClick={cancelAddNode}
+                                        className="px-4 py-2 bg-red-500 text-white rounded hover:bg-green-600"
+                                        >
+                                        Cancel
                                         </button>
                                     </div>
                                 )
@@ -187,7 +220,14 @@ const Graph: React.FC<ResidentialGraphData> = ({ id, nodes, edges, graphProperti
                         onClick={selectGraph}
                         className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
                     >
-                        Highlight Graph
+                        Highlight
+                    </button>
+
+                    <button
+                        onClick={() => deleteGraph(id)}
+                        className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-blue-600"
+                    >
+                        Delete
                     </button>
                 </div>
 

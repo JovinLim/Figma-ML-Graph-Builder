@@ -70,9 +70,10 @@ const MainPage: React.FC<GraphActionButtonsProps> = () => {
     <div>
       {(() => {
         switch (mode) {
-          case 'default':
-          case 'add-nodes':
-          case 'add-edges':
+          case 'input':
+            return <InputContainer />;
+
+          default:
             return (
               <Container space="large" className="relative h-full">
                 <VerticalSpace space="small" />
@@ -88,12 +89,6 @@ const MainPage: React.FC<GraphActionButtonsProps> = () => {
                 <VerticalSpace space="small" />
               </Container>
             );
-
-          case 'input':
-            return <InputContainer />;
-
-          default:
-            return <p>Invalid mode. Please select a valid option.</p>; // Fallback UI for unknown modes
         }
       })()}
     </div>
@@ -272,7 +267,7 @@ const EventDispatcher: React.FC = () => {
 
     else if (type === 'highlight-nodes'){
       console.log(`Highlighting ${nodes.length} nodes.`)
-      setHighlightedNodes(nodes);
+      setHighlightedNodes((prevNodes) => [...prevNodes, ...nodes]);
     }
 
     else if (type === 'export-graph-json'){
@@ -508,7 +503,6 @@ const GraphActionButtons: React.FC<GraphActionButtonsProps> = () => {
   };
 
   const unselectAllNodes = () => {
-    const highlightedNodeIds = highlightedNodes.map(node => node.highlight_id);
     emit<DehighlightAllNodesHandler>('DEHIGHLIGHT_ALL_NODES');
     setHighlightedNodes([]);
   };
@@ -516,7 +510,7 @@ const GraphActionButtons: React.FC<GraphActionButtonsProps> = () => {
   const exportAsJSON = () => {
     graphs.forEach(graph => {
       const nodeIds = graph.nodes.map(n => n.id);
-      const edgesData = graph.edges.map(e => ({'source':e.sourceNodeId, 'target':e.targetNodeId}))
+      const edgesData = graph.edges.map(e => ({'id': e.id, 'source':e.sourceNodeId, 'target':e.targetNodeId}))
       const figmaNodeInterface = {
         nodes: nodeIds,
         edges: edgesData
@@ -530,7 +524,7 @@ const GraphActionButtons: React.FC<GraphActionButtonsProps> = () => {
         Create Graph
       </Button>
       <Button fullWidth onClick={unselectAllNodes} id="dehighlight" className="mr-2">
-        Dehighlight
+        Clear Highlights
       </Button>
       <Button fullWidth onClick={exportAsJSON} id="export-json" className="ml-2">
         Export All

@@ -2,21 +2,21 @@ import { h, createContext } from "preact";
 import { generateUUID, GraphData, GraphEdgeData, GraphEdgeProperties, GraphNodeData, GraphNodeProperties, GraphProperties } from "../lib/core";
 import { ReactNode, useContext, useState } from "preact/compat";
 import { emit } from "@create-figma-plugin/utilities";
-import { InputNameHandler, NotifyHandler } from "../types";
+import { DehighlightAllNodesHandler, InputNameHandler, NotifyHandler } from "../types";
 
 // Define context type
 interface GraphContextType {
     graphs: GraphData[];
-    currentGraph: string | undefined;
-    currentEdges: string[] | undefined;
-    currentNodes: string[] | undefined;
+    currentGraph: string;
+    currentGraphEdges: string[];
+    currentGraphNodes: string[];
     highlightedNodes: any[];
     mode:string;
     bidirectional: boolean;
 
-    setCurrentNodes: React.Dispatch<React.SetStateAction<string[]>>;
-    setCurrentEdges: React.Dispatch<React.SetStateAction<string[]>>;
-    setCurrentGraph: React.Dispatch<React.SetStateAction<string|undefined>>;
+    setCurrentGraphNodes: React.Dispatch<React.SetStateAction<string[]>>;
+    setCurrentGraphEdges: React.Dispatch<React.SetStateAction<string[]>>;
+    setCurrentGraph: React.Dispatch<React.SetStateAction<string>>;
     setHighlightedNodes: React.Dispatch<React.SetStateAction<any[]>>;
     setMode:React.Dispatch<React.SetStateAction<string>>;
 
@@ -42,6 +42,10 @@ interface GraphContextType {
       graphId: string,
       newNodes: GraphNodeData[]
     ) => void;
+
+    deleteGraph: (
+      graphId: string
+    ) => void;
   }
 
 // Create context
@@ -50,9 +54,9 @@ const GraphContext = createContext<GraphContextType | undefined>(undefined);
 // Provider component
 export const GraphProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [graphs, setGraphs] = useState<GraphData[]>([]);
-  const [currentNodes, setCurrentNodes] = useState<string[]>([]);
-  const [currentEdges, setCurrentEdges] = useState<string[]>([]);
-  const [currentGraph, setCurrentGraph] = useState<string|undefined>();
+  const [currentGraphNodes, setCurrentGraphNodes] = useState<string[]>([]);
+  const [currentGraphEdges, setCurrentGraphEdges] = useState<string[]>([]);
+  const [currentGraph, setCurrentGraph] = useState<string>("");
   const [highlightedNodes, setHighlightedNodes] = useState<any[]>([]);
   const [mode, setMode] = useState<string>("default");
   const bidirectional = true;
@@ -213,17 +217,35 @@ export const GraphProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     return newGraph.id;
   };
 
+
+  // Function to delete a graph
+  const deleteGraph = (graphId: string) => {
+    emit<DehighlightAllNodesHandler>('DEHIGHLIGHT_ALL_NODES');
+    setHighlightedNodes([]);
+    setGraphs((prevGraphs) => {
+      // Filter out the graph with the matching graphId
+      const updatedGraphs = prevGraphs.filter((graph) => graph.id !== graphId);
+  
+      // If the current graph is the one being deleted, reset the current graph
+      if (currentGraph === graphId) {
+        setCurrentGraph(updatedGraphs?.length > 0 ? updatedGraphs[-1].id : ""); // Set to the first graph or null if none
+      }
+  
+      return updatedGraphs; // Update state with the new list
+    });
+  };
+
   return (
     <GraphContext.Provider value={{
       graphs, 
       currentGraph, 
-      currentEdges, 
-      currentNodes, 
+      currentGraphEdges, 
+      currentGraphNodes, 
       highlightedNodes,
       mode,
       bidirectional,
-      setCurrentNodes,
-      setCurrentEdges,
+      setCurrentGraphNodes,
+      setCurrentGraphEdges,
       setCurrentGraph,
       setHighlightedNodes,
       setMode,
@@ -232,6 +254,7 @@ export const GraphProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       updateGraphEdges, 
       updateGraphNodes, 
       updateGraphProps,
+      deleteGraph,
     }}>
       {children}
     </GraphContext.Provider>

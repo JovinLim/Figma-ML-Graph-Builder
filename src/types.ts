@@ -8,7 +8,12 @@ export interface InsertCodeHandler extends EventHandler {
 
 export interface AddNodeHandler extends EventHandler {
   name: 'ADD_NODE'
-  handler: (id: string) => void
+  handler: (graphId: string) => void
+}
+
+export interface AddNodesGroupHandler extends EventHandler {
+  name: 'ADD_NODES_BY_GROUP'
+  handler: (graphId: string) => void
 }
 
 export interface NotifyHandler extends EventHandler {

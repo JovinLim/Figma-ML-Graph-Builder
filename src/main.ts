@@ -1,5 +1,5 @@
 import { getSelectedNodesOrAllNodes, loadFontsAsync, once, showUI, on } from '@create-figma-plugin/utilities'
-import { AddEdgeHandler, AddNodeHandler, AutoEdgeHandler, DehighlightAllNodesHandler, DehighlightNodesHandler, ExportGraphJSON, HighlightNodesHandler, InputNameHandler, InsertCodeHandler, NotifyHandler } from './types'
+import { AddEdgeHandler, AddNodeHandler, AddNodesGroupHandler, AutoEdgeHandler, DehighlightAllNodesHandler, DehighlightNodesHandler, ExportGraphJSON, HighlightNodesHandler, InputNameHandler, InsertCodeHandler, NotifyHandler } from './types'
 import { generateUUID } from './lib/utils';
 import { FigmaNodeGeometryData, GraphFigmaNodesInterface } from './lib/core';
 
@@ -47,6 +47,54 @@ export default function () {
     }
   })
 
+  on<AddNodesGroupHandler>('ADD_NODES_BY_GROUP', function (graphId: string) {
+    // Check if there are currently selected nodes in the Figma file
+    const selectedNodes = figma.currentPage.selection;
+  
+    if (selectedNodes.length > 0) {
+      // Filter to check if all selected nodes are groups and contain only valid children
+      const validGroups = selectedNodes.filter((node) => {
+        if (node.type === 'GROUP') {
+          // Check if all children of the group are of valid types
+          const groupChildren = (node as GroupNode).children;
+          return groupChildren.every(
+            (child) =>
+              child.type === 'RECTANGLE' ||
+              child.type === 'POLYGON' ||
+              child.type === 'GROUP' ||
+              child.type === 'VECTOR'
+          );
+        }
+        return false;
+      });
+  
+      if (validGroups.length > 0) {
+        // If valid groups are found, process each valid group and its children
+        const nodesData = validGroups.flatMap((group) =>
+          (group as GroupNode).children.map((node) => ({
+            fNodeId: node.id,
+            fNodeName: node.name,
+            graphId: graphId,
+            graphNodeId: generateUUID(), // Generate a unique ID for each graph node
+          }))
+        );
+  
+        figma.ui.postMessage({
+          type: 'add-nodes',
+          nodes: nodesData, // Send the list of selected nodes
+          graphId: graphId,
+        });
+  
+        // Empty selection
+        figma.currentPage.selection = [];
+      } else {
+        figma.notify('No groups selected or invalid objects in groups selected. Please try again.');
+      }
+    } else {
+      figma.notify('No objects selected. Please try again.');
+    }
+  });
+
   on<AddEdgeHandler>('ADD_EDGE', function (graphId: string, nodeId:string) {
     // Check if there are currently selected nodes in the Figma file
     const selectedNodes = figma.currentPage.selection;
@@ -75,9 +123,10 @@ export default function () {
     }
   })
 
-  on<AutoEdgeHandler>('AUTO_EDGE', async function (graphId: string, nodeId:string, gNodeIds:string[]) {
+  on<AutoEdgeHandler>('AUTO_EDGE', async function (graphId: string, nodeId: string, gNodeIds: string[]) {
     const cNode_ = await figma.getNodeByIdAsync(nodeId) as RectangleNode | PolygonNode | GroupNode;
-    const nodesData = [] as { tNodeId: string; tNodeName: string, graphId: string, nodeId:string }[]; // Array to store edges data
+    const nodesData = [] as { tNodeId: string; tNodeName: string; graphId: string; nodeId: string }[]; // Array to store edges data
+    
     if (!cNode_ || !cNode_.absoluteBoundingBox) {
       console.error('Current node not found or does not have an absoluteBoundingBox.');
       return;
@@ -85,8 +134,8 @@ export default function () {
   
     const cNodeBox = cNode_.absoluteBoundingBox as Rect;
   
-    // Define a threshold distance to consider nodes as "beside" each other
-    const margin = 10; // Adjust the margin value based on your requirements
+    // Define a threshold distance to consider nodes as "beside" or "above/below" each other
+    const margin = 3; // Adjust the margin value based on your requirements
   
     for (let n = 0; n < gNodeIds.length; n++) {
       const gNodeId = gNodeIds[n];
@@ -98,15 +147,21 @@ export default function () {
       }
   
       const fNodeBox = fNode.absoluteBoundingBox as Rect;
-  
-      // Calculate the distance between nodes
-      const isBeside = 
-        (Math.abs(cNodeBox.x + cNodeBox.width - fNodeBox.x) <= margin ||  // Right beside
-         Math.abs(fNodeBox.x + fNodeBox.width - cNodeBox.x) <= margin) && // Left beside
-        (Math.abs(cNodeBox.y - fNodeBox.y) < margin + Math.max(cNodeBox.height, fNodeBox.height)); // Vertically aligned
-  
-      if (isBeside) {
-        // If nodes are beside each other, create an edge
+      
+      const alignedHorizontal = 
+      ((cNodeBox.x >= fNode.x) && (fNodeBox.x + fNodeBox.width >= cNodeBox.x)) ||
+      ((fNodeBox.x >= cNodeBox.x) && (cNodeBox.x + cNodeBox.width >= fNodeBox.x)) ||
+      (Math.abs(fNodeBox.x + fNodeBox.width - cNodeBox.x) <= margin) ||
+      (Math.abs(cNodeBox.x + cNodeBox.width - fNodeBox.x) <= margin)
+
+      const alignedVertical =
+      ((cNodeBox.y >= fNode.y) && (fNodeBox.y + fNodeBox.height >= cNodeBox.y)) ||
+      ((fNodeBox.y >= cNodeBox.y) && (cNodeBox.y + cNodeBox.height >= fNodeBox.y)) ||
+      (Math.abs(fNodeBox.y + fNodeBox.height - cNodeBox.y) <= margin) ||
+      (Math.abs(cNodeBox.y + cNodeBox.height - fNodeBox.y) <= margin)
+      
+      if (alignedHorizontal && alignedVertical) {
+        // If nodes are aligned horizontally and vertically, create an edge
         nodesData.push({
           tNodeId: fNode.id,
           tNodeName: fNode.name,
@@ -115,14 +170,14 @@ export default function () {
         });
       }
     }
-
+  
     // Send the list of edges to the UI
     figma.ui.postMessage({
       type: 'auto-edges',
       nodes: nodesData, // Send the list of selected nodes
       graphId: graphId,
     });
-  })
+  });
 
   on<ExportGraphJSON>('EXPORT_GRAPH_JSON', async function (graphId:string, fNodes:GraphFigmaNodesInterface) {
     const allNodesInformation = [] as FigmaNodeGeometryData[];
@@ -209,19 +264,32 @@ export default function () {
     
       const edgeLine = figma.createVector();
       edgeLine.setPluginData('graph-builder', 'edge');
-    
-      // Set the vector path data between source center and target center
-      edgeLine.vectorPaths = [{
-        windingRule: "EVENODD",
-        data: `M ${sourceAbsolutebbCenter[0]} ${sourceAbsolutebbCenter[1]} L ${targetAbsolutebbCenter[0]} ${targetAbsolutebbCenter[1]}`,
-      }];
-    
+
       // Set stroke properties
       edgeLine.strokeWeight = 1;  // Stroke width
       edgeLine.strokes = [{
         type: 'SOLID',
         color: { r: 1, g: 0, b: 0 },  // Red color
       }];
+
+      edgeLine.vectorNetwork = {
+        vertices: [
+          {x: sourceAbsolutebbCenter[0], y: sourceAbsolutebbCenter[1], strokeCap: "NONE"},
+          {x: targetAbsolutebbCenter[0], y: targetAbsolutebbCenter[1], strokeCap: "ARROW_LINES"},
+        ],
+        segments: [
+          {
+            start: 0,
+            end: 1
+          }
+        ]
+      }
+      
+      // // Set the vector path data between source center and target center
+      // edgeLine.vectorPaths = [{
+      //   windingRule: "EVENODD",
+      //   data: `M ${sourceAbsolutebbCenter[0]} ${sourceAbsolutebbCenter[1]} L ${targetAbsolutebbCenter[0]} ${targetAbsolutebbCenter[1]}`,
+      // }];
       
       const edgesData = {
         type:'edge',
@@ -229,10 +297,11 @@ export default function () {
         targetId: edge_['target'],
         x: edgeLine.x,
         y: edgeLine.y,
-        highlight_id: edgeLine.id
+        highlight_id: edgeLine.id,
+        id: edge_['id']
       };
-
-      allNodesInformation.push(edgesData)
+    
+      allNodesInformation.push(edgesData);
       // Append the edge line to the current page
       figma.currentPage.appendChild(edgeLine);
     }

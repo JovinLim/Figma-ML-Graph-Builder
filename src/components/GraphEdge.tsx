@@ -1,38 +1,68 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { h, RefObject } from 'preact'
 import { ResidentialEdgeCategories, ResidentialGraphEdgeData, ResidentialGraphNodeData } from '../lib/types';
 import { useGraphContext } from './GraphContext';
 import { emit } from '@create-figma-plugin/utilities';
-import { DehighlightNodesHandler, HighlightNodesHandler } from '../types';
+import { DehighlightAllNodesHandler, DehighlightNodesHandler, HighlightNodesHandler } from '../types';
 import { GraphFigmaNodesInterface } from '../lib/core';
 
 
 const GraphEdge: React.FC<ResidentialGraphEdgeData> = ({ graphId, sourceNodeId, targetNodeId, edgeProperties, id }) => {
-  const { graphs, updateGraphData, setCurrentGraph, setCurrentNodes, highlightedNodes } = useGraphContext();
+  const { graphs, updateGraphData, setCurrentGraph, setCurrentGraphEdges, currentGraphEdges, highlightedNodes, setHighlightedNodes } = useGraphContext();
+  const [highlighted, setHighlighted] = useState<boolean>(false);
+  const inputRef = useRef<HTMLDivElement>(null);
 
-  const handleMouseEnter = () => {
-    const graph_ = graphs.find((g) => g.id === graphId);
+  const handleEdgeSelect = () => {
+    if (currentGraphEdges?.includes(id)) {
+      // Find the edge line's highlight ID and dehighlight it
+      const edgeLine = highlightedNodes.find((node_) => {
+        if (node_.type == 'edge' && node_.id == id) {
+          return node_;
+        }
+      });  // Extract the highlight_id
 
-    const nodes_to_highlight = {
-      'nodes': [] as string[],
-      'edges': [] as {
-        source : string,
-        target : string
-      }[]
-    } as GraphFigmaNodesInterface;
+      const edgeLineFId = edgeLine.highlight_id;
+      if (edgeLineFId) {
+        // Remove the node from highlighted nodes
+        setHighlightedNodes((prevNodes) =>
+          prevNodes.filter((node_) => !(node_.type == 'edge' && node_.id == id))
+        );
     
-    if (graph_ && nodes_to_highlight['edges']) {
-      nodes_to_highlight['edges'].push({source:sourceNodeId, target:targetNodeId})
-      emit<HighlightNodesHandler>("HIGHLIGHT_NODES", nodes_to_highlight)
-      setCurrentGraph(graphId);
-      setCurrentNodes([])
+        // Remove edge id from current edges
+        setCurrentGraphEdges((prevEdges) => prevEdges.filter((edgeId) => edgeId !== id));
+    
+        // Emit the dehighlight event
+        emit<DehighlightNodesHandler>('DEHIGHLIGHT_NODES', [edgeLineFId]);
+    
+        // Update the input field UI
+        inputRef.current?.classList.replace('bg-gray-500', 'bg-gray-100');
+    
+        // Set the highlighted state to false
+        setHighlighted(false);
+      }
     }
-  };
 
-  const handleMouseLeave = () => {
-    const highlightedNodeIds = highlightedNodes.map(node => node.highlight_id);
-    emit<DehighlightNodesHandler>('DEHIGHLIGHT_NODES', highlightedNodeIds);
-  };
+    else {
+      setCurrentGraphEdges((cEdges) => [...cEdges, id]);
+      inputRef.current?.classList.replace('bg-gray-100','bg-gray-500');
+      const graph_ = graphs.find((g) => g.id === graphId);
+
+      const nodes_to_highlight = {
+        'nodes': [] as string[],
+        'edges': [] as {
+          source : string,
+          target : string
+        }[]
+      } as GraphFigmaNodesInterface;
+      
+      if (graph_ && nodes_to_highlight['edges']) {
+        nodes_to_highlight['edges'].push({id:id, source:sourceNodeId, target:targetNodeId})
+        emit<HighlightNodesHandler>("HIGHLIGHT_NODES", nodes_to_highlight)
+        setCurrentGraph(graphId);
+      }
+      setHighlighted(true);
+    }
+  }
 
   // Find the current graph and node from context
   const graph = graphs.find((g) => g.id === graphId);
@@ -63,11 +93,11 @@ const GraphEdge: React.FC<ResidentialGraphEdgeData> = ({ graphId, sourceNodeId, 
   };
 
   useEffect(() => {
-    console.log(graphs)
-  }, [graphs, edgeProperties])
+
+  }, [graphs, edgeProperties, currentGraphEdges])
 
   return (
-    <div className="edge bg-gray-100 p-2 rounded-md shadow-sm my-1" onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
+    <div className="edge bg-gray-100 p-2 rounded-md shadow-sm my-1" onClick={handleEdgeSelect} ref={inputRef}>
       <span>
         Edge from <strong>{(sNode_ as ResidentialGraphNodeData)?.nodeProperties?.cat}</strong> to <strong>{(tNode_ as ResidentialGraphNodeData)?.nodeProperties?.cat}</strong>
       </span>
