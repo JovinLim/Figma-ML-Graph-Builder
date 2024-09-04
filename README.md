@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # React Editor
 
 ## Development guide
@@ -47,6 +46,3 @@ Official docs and code samples from Figma:
 
 - [Plugin API docs](https://figma.com/plugin-docs/)
 - [`figma/plugin-samples`](https://github.com/figma/plugin-samples#readme)
-=======
-# Figma-ML-Graph-Builder
->>>>>>> f01c59b (Initial commit)
