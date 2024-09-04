@@ -156,7 +156,7 @@ const GraphNode: React.FC<ResidentialGraphNodeData> = ({ id, label, graphId, nod
         setNInputValue(value); // Update input with selected option
         if (value in ResidentialNodeCategories) {
           handleCatChange('category', ResidentialNodeCategories[value as keyof typeof ResidentialNodeCategories]);
-          setNCatValue(ResidentialNodeCategories[value as keyof typeof ResidentialNodeCategories]);
+          setNCatValue(value);
         } else {
           setNCatValue(''); // Reset catValue or handle as needed if the input doesn't match any category
         }
@@ -167,7 +167,7 @@ const GraphNode: React.FC<ResidentialGraphNodeData> = ({ id, label, graphId, nod
         setPInputValue(value); // Update input with selected option
         if (value in ResidentialNodeCategories) {
           handleCatChange('parent-category', ResidentialNodeCategories[value as keyof typeof ResidentialNodeCategories]);
-          setPCatValue(ResidentialNodeCategories[value as keyof typeof ResidentialNodeCategories]);
+          setPCatValue(value);
         } else {
           setPCatValue(''); // Reset catValue or handle as needed if the input doesn't match any category
         }
@@ -254,9 +254,9 @@ const GraphNode: React.FC<ResidentialGraphNodeData> = ({ id, label, graphId, nod
   };
 
   useEffect(() => {
-    if (nodeProperties?.cat){
-      setNInputValue(nodeProperties.cat)
-    }
+    // if (nodeProperties?.cat){
+    //   setNInputValue(nodeProperties.cat)
+    // }
 
     const handleEdgesAdded = (event: Event) => {
       const { graphId } = (event as CustomEvent).detail;
@@ -300,7 +300,7 @@ const GraphNode: React.FC<ResidentialGraphNodeData> = ({ id, label, graphId, nod
 
                 {nodeProperties && (
                   <div className="mt-2 relative" style={{display:'flex', flexDirection:'column', gap:'5px'}}>
-                    <div onClick={() => toggleDropdown('category')} style={{display:'flex', flexDirection:'row', position:'relative', justifyContent:'space-between'}}>
+                    <div style={{display:'flex', flexDirection:'row', position:'relative', justifyContent:'space-between'}}>
                       {/* Text Input for Filtering Options */}
                       <label className="font-bold mr-2">Category:</label>
                       <div style={{display:'flex', flexDirection:'column', position:'relative'}}>
@@ -308,6 +308,7 @@ const GraphNode: React.FC<ResidentialGraphNodeData> = ({ id, label, graphId, nod
                           type="text"
                           value={nInputValue} // Shows only the user's input
                           onChange={handleSelectInputChange}
+                          onClick={() => toggleDropdown('category')}
                           className="border p-1 rounded"
                           style={{ border: '1px solid black' }}
                           data-prop="category"
@@ -337,7 +338,7 @@ const GraphNode: React.FC<ResidentialGraphNodeData> = ({ id, label, graphId, nod
 
                     </div>
 
-                    <div onClick={() => toggleDropdown('parent-category')} style={{display:'flex', flexDirection:'row', position:'relative', justifyContent:'space-between'}}>
+                    <div style={{display:'flex', flexDirection:'row', position:'relative', justifyContent:'space-between'}}>
                       <label className="font-bold mr-2">Parent Category:</label>
                       <div style={{display:'flex', flexDirection:'column', position:'relative'}}>
                         {/* Text Input for Filtering Options */}
@@ -345,6 +346,7 @@ const GraphNode: React.FC<ResidentialGraphNodeData> = ({ id, label, graphId, nod
                           type="text"
                           value={pInputValue} // Shows only the user's input
                           onChange={handleSelectInputChange}
+                          onClick={() => toggleDropdown('parent-category')}
                           className="border p-1 rounded"
                           style={{ border: '1px solid black' }}
                           data-prop="parent-category"
