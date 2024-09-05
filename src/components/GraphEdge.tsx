@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { h, RefObject } from 'preact'
-import { ResidentialEdgeCategories, ResidentialGraphEdgeData, ResidentialGraphNodeData } from '../lib/types';
+import { ResidentialEdgeCategories, ResidentialGraphEdgeData, ResidentialGraphNodeData, ResidentialNodeCategories } from '../lib/types';
 import { useGraphContext } from './GraphContext';
 import { emit } from '@create-figma-plugin/utilities';
 import { DehighlightAllNodesHandler, DehighlightNodesHandler, HighlightNodesHandler } from '../types';
@@ -102,7 +102,7 @@ const GraphEdge: React.FC<ResidentialGraphEdgeData> = ({ graphId, sourceNodeId, 
   }, [graphs, edgeProperties, currentGraphEdges])
 
   return (
-    <div className="bg-gray-100 p-2 rounded-md shadow-sm my-1" onClick={handleEdgeSelect} ref={inputRef}>
+    <div className="bg-gray-100 p-2 rounded-md shadow-sm my-1" style={{width:'45%', maxWidth:'45%'}} onClick={handleEdgeSelect} ref={inputRef}>
       <span>
         Edge from <strong>{(sNode_ as ResidentialGraphNodeData)?.nodeProperties?.cat}</strong> to <strong>{(tNode_ as ResidentialGraphNodeData)?.nodeProperties?.cat}</strong>
       </span>

@@ -57,6 +57,7 @@ export const getRandomColor = () => {
 export const widthToHeightRatio = 4/3;
 export const UIHeight = 600;
 export const UIWidth = widthToHeightRatio*UIHeight;
+export const pixelToMM= 0.2645;
 
 export const teamMembers = [
   'Jovin',

@@ -16,7 +16,7 @@ import styles from './styles.css'
 import { AddNodeHandler, AutoEdgeHandler, DehighlightAllNodesHandler, DehighlightNodesHandler, ExportGraphJSON, InsertCodeHandler, NotifyHandler } from './types'
 import Graph from './components/Graph'
 import { generateUUID, getRandomColor, toggleDropdown, UIHeight, UIWidth } from './lib/utils'
-import { DefaultResidentialEdgeCategory, ResidentialGraphData, ResidentialGraphEdgeData, ResidentialGraphJSONData, ResidentialGraphNodeData, ResidentialGraphNodeProperties, ResidentialGraphNodeJSONData, ResidentialGraphEdgeJSONData, ResidentialGraphProperties, ExternalUnitCategories, ResidentialEdgeCategories, ResidentialGraphDescriptor, ResidentialGraphAttachment, GraphGlobalProperties, defaultAreaUnit } from './lib/types'
+import { DefaultResidentialEdgeCategory, ResidentialGraphData, ResidentialGraphEdgeData, ResidentialGraphJSONData, ResidentialGraphNodeData, ResidentialGraphNodeProperties, ResidentialGraphNodeJSONData, ResidentialGraphEdgeJSONData, ResidentialGraphProperties, ExternalUnitCategories, ResidentialEdgeCategories, ResidentialGraphDescriptor, ResidentialGraphAttachment, GraphGlobalProperties, defaultAreaUnit, ResidentialNodeCategories } from './lib/types'
 import { FigmaNodeGeometryData, GraphData, GraphEdgeData, GraphNodeData } from './lib/core'
 import { GraphProvider, useGraphContext } from './components/GraphContext'
 import React, { ChangeEvent, createPortal } from 'preact/compat'
@@ -403,7 +403,7 @@ const InputContainer: React.FC<InputContainerProps> = () => {
       const levelLowerInput = document.getElementById('graphLevelLowerInput') as HTMLInputElement;
       const levelUpperInput = document.getElementById('graphLevelUpperInput') as HTMLInputElement;
       nameInput.value = "Lorem Ipsum";
-      scaleInput.value = "200";
+      scaleInput.value = ((0.26458*200)/1000).toString();
       projectInput.value = "Avenue South Residence";
       BRInput.value = "1";
     }
@@ -810,8 +810,8 @@ const EventDispatcher: React.FC = () => {
             const depth = fNode_.height * graphScale_;
         
             // Extract the 'cat' property from the graph node properties
-            const cat = gNode_.nodeProperties?.cat || 'unknown';
-            const pcat = gNode_.nodeProperties?.pcat || cat;
+            const cat = ResidentialNodeCategories[gNode_.nodeProperties?.cat as keyof typeof ResidentialNodeCategories] || 'unknown';
+            const pcat = ResidentialNodeCategories[gNode_.nodeProperties?.pcat as keyof typeof ResidentialNodeCategories] || cat;
         
             // Use the node's unique ID
             const uid = generateUUID();
@@ -838,7 +838,7 @@ const EventDispatcher: React.FC = () => {
           edgesJsonData[gEdge_.id]=({
             source: nodesIdMap[gEdge_.sourceNodeId],
             target: nodesIdMap[gEdge_.targetNodeId],
-            cat: gEdge_.edgeProperties.cat ? gEdge_.edgeProperties.cat : 'ACCESS'
+            cat: ResidentialEdgeCategories[gEdge_.edgeProperties.cat as keyof typeof ResidentialEdgeCategories] ? ResidentialEdgeCategories[gEdge_.edgeProperties.cat as keyof typeof ResidentialEdgeCategories] : 'ACCESS'
           })
         }
 
@@ -922,7 +922,7 @@ const EventDispatcher: React.FC = () => {
         const levels_ = (graph_ as ResidentialGraphData)?.graphProperties?.levels ? (graph_ as ResidentialGraphData)?.graphProperties?.levels : "unknown"
         const comments = (graph_ as ResidentialGraphData)?.graphProperties?.comments ? (graph_ as ResidentialGraphData)?.graphProperties?.comments : "unknown"
         const annotators = (graph_ as ResidentialGraphData)?.graphProperties?.annotators ? (graph_ as ResidentialGraphData)?.graphProperties?.annotators : "unknown"
-        const grade_ = `${br_}br_${descriptor_}_${attachment_}`;
+        const grade_ = `${br_}br${descriptor_ ? "_"+descriptor_ : ""}${attachment_ ? "+"+attachment_:""}`;
 
         const graphGlobalInfo = {
           grade: grade_,

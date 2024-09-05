@@ -144,26 +144,25 @@ const GraphNode: React.FC<ResidentialGraphNodeData> = ({ id, label, graphId, nod
     switch (prop_) {
       case 'category':
         setNInputValue(value); // Update input with selected option
+        console.log(value)
         if (value in ResidentialNodeCategories) {
-          handleCatChange('category', ResidentialNodeCategories[value as keyof typeof ResidentialNodeCategories]);
+          handleCatChange('category', value);
           setNCatValue(value);
         } else {
           setNCatValue(''); // Reset catValue or handle as needed if the input doesn't match any category
         }
         toggleDropdown(catDropdownRef.current, 'hidden')
-        // setIsNDropdownOpen(false); // Close dropdown
         break;
 
       case 'parent-category':
         setPInputValue(value); // Update input with selected option
         if (value in ResidentialNodeCategories) {
-          handleCatChange('parent-category', ResidentialNodeCategories[value as keyof typeof ResidentialNodeCategories]);
+          handleCatChange('parent-category', value);
           setPCatValue(value);
         } else {
           setPCatValue(''); // Reset catValue or handle as needed if the input doesn't match any category
         }
         toggleDropdown(pCatDropdownRef.current, 'hidden')
-        // setIsPDropdownOpen(false); // Close dropdown
         break;
     }
   };
@@ -388,7 +387,7 @@ const GraphNode: React.FC<ResidentialGraphNodeData> = ({ id, label, graphId, nod
               <div style={{width:'100%', maxWidth:'100%'}}>
                 <span className="font-bold">Edges: </span>
                   {currentNode && currentNode.nodeProperties && currentNode.nodeProperties.edges.length > 0 ? (
-                    <div className="space-y-1" style={{display:'flex', flexWrap:'wrap', maxWidth:'100%', width:'100%', gap:'3px'}}>
+                    <div className="space-y-1" style={{display:'flex', flexWrap:'wrap', maxWidth:'100%', width:'100%', gap:'5px'}}>
                       {currentNode.nodeProperties.edges.map((edgeId, index) => {
                         const edge = graph?.edges.find((e) => e.id === edgeId) as ResidentialGraphEdgeData;
                         if (!edge) return null;
