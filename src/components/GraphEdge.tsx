@@ -8,7 +8,7 @@ import { GraphFigmaNodesInterface } from '../lib/core';
 
 
 const GraphEdge: React.FC<ResidentialGraphEdgeData> = ({ graphId, sourceNodeId, targetNodeId, edgeProperties, id }) => {
-  const { graphs, updateGraphData, setCurrentGraph, setCurrentGraphEdges, currentGraphEdges, highlightedNodes, setHighlightedNodes, updateGraphEdgeProperty } = useGraphContext();
+  const { graphs, updateGraphData, setCurrentGraph, setCurrentGraphEdges, currentGraphEdges, highlightedNodes, setHighlightedNodes, updateGraphEdgeProperty, deleteEdge } = useGraphContext();
   const [highlighted, setHighlighted] = useState<boolean>(false);
   const inputRef = useRef<HTMLDivElement>(null);
 
@@ -102,13 +102,13 @@ const GraphEdge: React.FC<ResidentialGraphEdgeData> = ({ graphId, sourceNodeId, 
   }, [graphs, edgeProperties, currentGraphEdges])
 
   return (
-    <div className="edge bg-gray-100 p-2 rounded-md shadow-sm my-1" onClick={handleEdgeSelect} ref={inputRef}>
+    <div className="bg-gray-100 p-2 rounded-md shadow-sm my-1" onClick={handleEdgeSelect} ref={inputRef}>
       <span>
         Edge from <strong>{(sNode_ as ResidentialGraphNodeData)?.nodeProperties?.cat}</strong> to <strong>{(tNode_ as ResidentialGraphNodeData)?.nodeProperties?.cat}</strong>
       </span>
-      <div className="mt-2 flex flex-row" style={{alignItems:'center', alignContent:'center'}}>
-        <label className="font-bold mr-2">Cat:</label>
-        <select value={(currentEdge as ResidentialGraphEdgeData)?.edgeProperties.cat} onChange={handleCatChange} className="border p-1 rounded">
+      <div className="mt-2" style={{alignItems:'center', alignContent:'center', display:'flex', flexDirection:'row', gap:'3px', height:'30px'}}>
+        <label style={{height:'100%', alignItems:'center'}} className="font-bold mr-2">Cat:</label>
+        <select style={{height:'100%'}} value={(currentEdge as ResidentialGraphEdgeData)?.edgeProperties.cat} onChange={handleCatChange} className="border p-1 rounded">
           {/* Dynamically generate options from ResidentialEdgeCategories */}
           {Object.entries(ResidentialEdgeCategories).map(([categoryName, categoryValue]) => (
             <option key={categoryValue} value={categoryValue}>
@@ -116,6 +116,15 @@ const GraphEdge: React.FC<ResidentialGraphEdgeData> = ({ graphId, sourceNodeId, 
             </option>
           ))}
         </select>
+        <button
+          onClick={() => {
+            deleteEdge(graphId, id)}
+          }
+          className="bg-red-500 text-white rounded hover:bg-blue-600"
+          style={{width:'30px', height:'100%', paddingLeft:'2px', paddingRight:'2px', paddingTop:'2px', paddingBottom:'2px',}}
+        >
+          X
+        </button>
       </div>
     </div>
   );

@@ -15,7 +15,7 @@ const GraphNode: React.FC<ResidentialGraphNodeData> = ({ id, label, graphId, nod
   const [GIDValue, setGIDValue] = useState<number|string>("");
   const [isOpen, setIsOpen] = useState<boolean>(false);
   const [localMode, setLocalMode] = useState<string>("default");
-  const {graphs, updateGraphData, highlightedNodes, setCurrentGraph, setCurrentGraphNodes, currentGraphNodes, setHighlightedNodes} = useGraphContext();
+  const {graphs, updateGraphData, highlightedNodes, setCurrentGraph, setCurrentGraphNodes, currentGraphNodes, setHighlightedNodes, deleteNode} = useGraphContext();
   const [highlighted, setHighlighted] = useState<boolean>(false);
   const inputRef = useRef<HTMLDivElement|null>(null);
   const catDropdownRef = useRef<HTMLDivElement|null>(null);
@@ -244,7 +244,6 @@ const GraphNode: React.FC<ResidentialGraphNodeData> = ({ id, label, graphId, nod
     // if (nodeProperties?.cat){
     //   setNInputValue(nodeProperties.cat)
     // }
-    console.log(graph)
 
     const handleEdgesAdded = (event: Event) => {
       const { graphId } = (event as CustomEvent).detail;
@@ -386,20 +385,19 @@ const GraphNode: React.FC<ResidentialGraphNodeData> = ({ id, label, graphId, nod
 
             {/* Right side: Edges */}
             <div className="w-1/2 pl-4">
-              <div>
+              <div style={{width:'100%', maxWidth:'100%'}}>
                 <span className="font-bold">Edges: </span>
-
-                {currentNode && currentNode.nodeProperties && currentNode.nodeProperties.edges.length > 0 ? (
-                  <div className="space-y-1">
-                    {currentNode.nodeProperties.edges.map((edgeId, index) => {
-                      const edge = graph?.edges.find((e) => e.id === edgeId) as ResidentialGraphEdgeData;
-                      if (!edge) return null;
-                      return <GraphEdge key={index} {...edge} />;
-                    })}
-                  </div>
-                ) : (
-                  <p>No connected edges.</p>
-                )}
+                  {currentNode && currentNode.nodeProperties && currentNode.nodeProperties.edges.length > 0 ? (
+                    <div className="space-y-1" style={{display:'flex', flexWrap:'wrap', maxWidth:'100%', width:'100%', gap:'3px'}}>
+                      {currentNode.nodeProperties.edges.map((edgeId, index) => {
+                        const edge = graph?.edges.find((e) => e.id === edgeId) as ResidentialGraphEdgeData;
+                        if (!edge) return null;
+                        return <GraphEdge key={index} {...edge} />;
+                      })}
+                    </div>
+                  ) : (
+                    <p>No connected edges.</p>
+                  )}
               </div>
             </div>
           </div>
@@ -443,6 +441,15 @@ const GraphNode: React.FC<ResidentialGraphNodeData> = ({ id, label, graphId, nod
                       return null
                     }
                 })()}
+
+            <button
+              onClick={() => {
+                deleteNode(graphId, id)}
+              }
+              className="px-4 py-2 bg-red-500 text-white rounded hover:bg-blue-600"
+            >
+              Delete Node
+            </button>
 
             <button
               onClick={() => {

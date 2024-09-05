@@ -51,6 +51,14 @@ interface GraphContextType {
       graphId:string,
       newEdge: GraphEdgeData
     ) => void
+
+    deleteNode:(graphId: string, 
+      nodeId: string
+    ) => void
+
+    deleteEdge:(graphId: string, 
+      edgeId: string
+    ) => void
   }
 
 // Create context
@@ -278,7 +286,6 @@ export const GraphProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     return newGraph.id;
   };
 
-
   // Function to delete a graph
   const deleteGraph = (graphId: string) => {
     emit<DehighlightAllNodesHandler>('DEHIGHLIGHT_ALL_NODES');
@@ -294,6 +301,63 @@ export const GraphProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   
       return updatedGraphs; // Update state with the new list
     });
+  };
+
+  // Function to delete a node from a graph
+  const deleteNode = (graphId: string, nodeId: string) => {
+    emit<DehighlightAllNodesHandler>('DEHIGHLIGHT_ALL_NODES'); // Emit event to dehighlight all nodes
+    setHighlightedNodes([]); // Clear highlighted nodes
+
+    setGraphs((prevGraphs) =>
+      prevGraphs.map((graph) => {
+        if (graph.id !== graphId) return graph; // Skip other graphs
+
+        // Remove the node from the graph's nodes
+        const updatedNodes = graph.nodes.filter((node) => node.id !== nodeId);
+
+        // Find and remove edges associated with the node
+        const updatedEdges = graph.edges.filter(
+          (edge) => edge.sourceNodeId !== nodeId && edge.targetNodeId !== nodeId
+        );
+
+        // Update each node's nodeProperties to remove deleted edge references
+        const nodesWithUpdatedEdges = updatedNodes.map((node) => {
+          if (node.nodeProperties) {
+            const filteredEdges = node.nodeProperties.edges.filter((edgeId) =>
+              updatedEdges.some((edge) => edge.id === edgeId) // Keep only the edges that still exist
+            );
+            node.nodeProperties.edges = filteredEdges;
+          }
+          return node;
+        });
+
+        return { ...graph, nodes: nodesWithUpdatedEdges, edges: updatedEdges }; // Return updated graph
+      })
+    );
+  };
+
+  const deleteEdge = (graphId: string, edgeId: string) => {
+    setGraphs((prevGraphs) =>
+      prevGraphs.map((graph) => {
+        if (graph.id !== graphId) return graph; // Skip other graphs
+  
+        // Remove the edge from the graph's edges
+        const updatedEdges = graph.edges.filter((edge) => edge.id !== edgeId);
+  
+        // Update each node's nodeProperties to remove the deleted edge reference
+        const nodesWithUpdatedEdges = graph.nodes.map((node) => {
+          if (node.nodeProperties) {
+            const filteredEdges = node.nodeProperties.edges.filter((eId) => eId !== edgeId); // Remove the deleted edge ID
+            node.nodeProperties.edges = filteredEdges;
+          }
+          return node;
+        });
+  
+        return { ...graph, nodes: nodesWithUpdatedEdges, edges: updatedEdges }; // Return updated graph
+      })
+    );
+
+    emit<DehighlightAllNodesHandler>('DEHIGHLIGHT_ALL_NODES');
   };
 
   return (
@@ -317,6 +381,8 @@ export const GraphProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       updateGraphProps,
       deleteGraph,
       updateGraphEdgeProperty,
+      deleteNode,
+      deleteEdge
     }}>
       {children}
     </GraphContext.Provider>

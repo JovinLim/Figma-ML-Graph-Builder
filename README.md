@@ -1,5 +1,11 @@
 # React Editor
 
+## Usage guide
+- Add node : Individually select nodes. Groups are considered a single node if you use this option.
+- Add nodes by group : Adds all objects in a group (only 1 nested depth) as nodes. Nested depth of 1 means that for nested groups, only the first layer of groupings are added
+- One click : Adds all objects in a group (only 1 nested depth) as nodes and resolves the edges as well. Edges are done by proximity, all objects with edges near to each other (margin of 3 pixels) will have edges created between them.
+- Use node labels : When checked, tries to match the category of node with the figma name/label of the object (check left hand side layers and assets).
+
 ## Development guide
 
 *This plugin is built with [Create Figma Plugin](https://yuanqing.github.io/create-figma-plugin/).*
