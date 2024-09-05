@@ -52,12 +52,22 @@ interface GraphContextType {
       newEdge: GraphEdgeData
     ) => void
 
-    deleteNode:(graphId: string, 
+    deleteNode:(
+      graphId: string, 
       nodeId: string
     ) => void
 
-    deleteEdge:(graphId: string, 
+    deleteEdge:(
+      graphId: string, 
       edgeId: string
+    ) => void
+
+    toJSON:(
+      graphId: string, 
+    ) => void
+
+    saveGraph:(
+      graphId: string, 
     ) => void
   }
 
@@ -360,6 +370,74 @@ export const GraphProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     emit<DehighlightAllNodesHandler>('DEHIGHLIGHT_ALL_NODES');
   };
 
+  // Export a graph to JSON
+  const toJSON = (graphId: string): string | null => {
+    const graph_ = graphs.find((g) => g.id === graphId); // Find the graph by ID
+  
+    if (graph_) {
+      // Create a JSON representation of the graph
+      const graphJSON = {
+        id: graph_.id,
+        nodes: graph_.nodes.map((node) => ({
+          id: node.id,
+          label: node.label,
+          graphId: node.graphId,
+          nodeProperties: node.nodeProperties ? {
+            edges: node.nodeProperties.edges,
+            // Add other properties if needed
+          } : undefined,
+          subnodes: node.subnodes, // Include subnodes if they exist
+        })),
+        edges: graph_.edges.map((edge) => ({
+          id: edge.id,
+          graphId: edge.graphId,
+          sourceNodeId: edge.sourceNodeId,
+          targetNodeId: edge.targetNodeId,
+          edgeProperties: edge.edgeProperties, // Include edge properties
+        })),
+        graphProperties: graph_.graphProperties, // Include graph properties
+      };
+  
+      // Convert the graph JSON object to a string
+      const jsonString = JSON.stringify(graphJSON, null, 2); // Pretty-print JSON with 2 spaces
+      return jsonString; // Return the JSON string
+    }
+  
+    return null; // Return null if the graph is not found
+  };
+
+  // Function to save graph as a JSON file
+  const saveGraph = (graphId: string) => {
+    const graph_ = graphs.find((g) => g.id === graphId); // Find the graph by ID
+
+    if (graph_) {
+      const graphJSON = toJSON(graph_.id); // Convert the graph to JSON string
+
+      if (graphJSON) {
+        // Create a Blob from the JSON string
+        const blob = new Blob([graphJSON], { type: 'application/json' });
+
+        // Create a temporary anchor element
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob); // Create a URL for the Blob
+        link.download = `${graphId}.json`; // Set the download filename using graphId
+
+        // Append the anchor to the document body and trigger a click to start the download
+        document.body.appendChild(link);
+        link.click();
+
+        // Clean up by removing the temporary anchor element
+        document.body.removeChild(link);
+      } else {
+        console.error('Failed to convert graph to JSON.');
+      }
+    } else {
+      console.error('Graph not found.');
+    }
+  };
+
+
+
   return (
     <GraphContext.Provider value={{
       graphs, 
@@ -382,7 +460,9 @@ export const GraphProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       deleteGraph,
       updateGraphEdgeProperty,
       deleteNode,
-      deleteEdge
+      deleteEdge,
+      toJSON,
+      saveGraph
     }}>
       {children}
     </GraphContext.Provider>

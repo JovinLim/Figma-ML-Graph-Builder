@@ -14,7 +14,7 @@ const Graph: React.FC<ResidentialGraphData> = ({ id, nodes, edges, graphProperti
     const [useNodeLabels, setUseNodeLabels] = useState<boolean>(false);
     const [nodesDropdownOpen, setNodesDropdownOpen] = useState<boolean>(false);
     const [edgesDropdownOpen, setEdgesDropdownOpen] = useState<boolean>(false);
-    const {graphs, setCurrentGraph, setHighlightedNodes, highlightedNodes, mode, setMode, updateGraphData, deleteGraph} = useGraphContext();
+    const {graphs, setCurrentGraph, setHighlightedNodes, highlightedNodes, mode, setMode, updateGraphData, deleteGraph, saveGraph} = useGraphContext();
 
     const HandleEditGraphProperties = () => {
         setCurrentGraph(id);
@@ -192,26 +192,54 @@ const Graph: React.FC<ResidentialGraphData> = ({ id, nodes, edges, graphProperti
                 {/* Buttons to Add Nodes */}
                 <div className="mt-4 space-x-2" style={{display:'flex', flexDirection:'row', height:'auto'}}>
                     <button
-                        onClick={() => handleAddNode('manual')}
+                        onClick={(e) => {
+                            (document.activeElement as HTMLElement).blur(); 
+                            handleAddNode('manual');
+                            e.currentTarget.focus();
+                        }}
                         className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                        onFocus={(e) => (e.currentTarget.classList.replace('bg-blue-500', 'bg-blue-800'))}
+                        onBlur={(e) => (e.currentTarget.classList.replace('bg-blue-800', 'bg-blue-500'))}
                     >
                         Add Nodes
                     </button>
 
                     <button
-                        onClick={() => handleAddNode('group')}
+                        onClick={(e) => {
+                            (document.activeElement as HTMLElement).blur();
+                            handleAddNode('group');
+                            e.currentTarget.focus();
+                        }}
                         className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                        onFocus={(e) => (e.currentTarget.classList.replace('bg-blue-500', 'bg-blue-800'))}
+                        onBlur={(e) => (e.currentTarget.classList.replace('bg-blue-800', 'bg-blue-500'))}
                     >
                         Add Nodes by Group
                     </button>
 
                     <button
-                        onClick={() => handleAddNode('one-click')}
-                        className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                        onClick={(e) => {
+                            (document.activeElement as HTMLElement).blur(); 
+                            handleAddNode('one-click');
+                            e.currentTarget.focus();
+                        }}
+                        className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 "
+                        onFocus={(e) => (e.currentTarget.classList.replace('bg-blue-500', 'bg-blue-800'))}
+                        onBlur={(e) => (e.currentTarget.classList.replace('bg-blue-800', 'bg-blue-500'))}
                     >
                         One-Click
                     </button>
 
+                    <button
+                        onClick={selectGraph}
+                        className="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-blue-600"
+                    >
+                        Highlight
+                    </button>
+                </div>
+
+                {/* TOOL OPTIONS */}
+                <div className="mt-4 space-x-2" style={{display:'flex', flexDirection:'row', height:'auto'}}>
                     {(() => {
                         switch(mode){
                             case 'add-nodes':
@@ -253,20 +281,6 @@ const Graph: React.FC<ResidentialGraphData> = ({ id, nodes, edges, graphProperti
                                 return null
                         }
                     })()}
-
-                    <button
-                        onClick={selectGraph}
-                        className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-                    >
-                        Highlight
-                    </button>
-
-                    <button
-                        onClick={() => deleteGraph(id)}
-                        className="px-4 py-2 bg-red-500 text-white rounded hover:bg-blue-600"
-                    >
-                        Delete
-                    </button>
                 </div>
 
                 {/* Graph Properties Display */}
@@ -292,6 +306,21 @@ const Graph: React.FC<ResidentialGraphData> = ({ id, nodes, edges, graphProperti
                         className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-blue-600"
                     >
                         Edit Graph Properties
+                    </button>
+                    <button
+                        onClick={() => {
+                            emit<NotifyHandler>('NOTIFY', false, 'Still working on this!')
+                            // saveGraph(id)
+                        }}
+                        className="px-4 py-2 bg-green-500 text-white rounded hover:bg-blue-600"
+                    >
+                        Save Graph
+                    </button>
+                    <button
+                        onClick={() => deleteGraph(id)}
+                        className="px-4 py-2 bg-red-500 text-white rounded hover:bg-blue-600"
+                    >
+                        Delete
                     </button>
                 </div>
 
