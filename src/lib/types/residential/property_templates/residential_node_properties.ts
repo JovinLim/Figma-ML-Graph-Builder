@@ -58,7 +58,5 @@ export const ExternalUnitCategories = {
     'Lobby' : 'lobby',
     'Private Lift Lobby' : 'private_lift_lobby',
     'Adjacent Lobby Lift' : 'lobby_lift',
-    'AC Ledge' : 'ac',
-    'RC Ledge' : 'rc',
     'External' : 'external',
 }

@@ -5,7 +5,7 @@ import { useGraphContext } from './GraphContext';
 import { AddEdgeHandler, AutoEdgeHandler, DehighlightNodesHandler, HighlightNodesHandler, NotifyHandler } from '../types';
 import { emit } from '@create-figma-plugin/utilities';
 import GraphEdge from './GraphEdge';
-import { GraphData, GraphFigmaNodesInterface } from '../lib/core';
+import { GraphData, GraphFigmaNodesInterface, toggleDropdown } from '../lib/core';
 
 const GraphNode: React.FC<ResidentialGraphNodeData> = ({ id, label, graphId, nodeProperties }) => {
   const [nInputValue, setNInputValue] = useState<string>(nodeProperties?.cat || '');
@@ -13,28 +13,18 @@ const GraphNode: React.FC<ResidentialGraphNodeData> = ({ id, label, graphId, nod
   const [pInputValue, setPInputValue] = useState<string>(nodeProperties?.pcat || '');
   const [pCatValue, setPCatValue] = useState<string>('');
   const [GIDValue, setGIDValue] = useState<number|string>("");
-  const [isNDropdownOpen, setIsNDropdownOpen] = useState<boolean>(false);
-  const [isPDropdownOpen, setIsPDropdownOpen] = useState<boolean>(false);
   const [isOpen, setIsOpen] = useState<boolean>(false);
   const [localMode, setLocalMode] = useState<string>("default");
   const {graphs, updateGraphData, highlightedNodes, setCurrentGraph, setCurrentGraphNodes, currentGraphNodes, setHighlightedNodes} = useGraphContext();
   const [highlighted, setHighlighted] = useState<boolean>(false);
-  const inputRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLDivElement|null>(null);
+  const catDropdownRef = useRef<HTMLDivElement|null>(null);
+  const pCatDropdownRef = useRef<HTMLDivElement|null>(null);
+  const nodeDropdownRef = useRef<HTMLDivElement|null>(null);
 
   // Find the current graph and node from context
   const graph = graphs.find((g) => g.id === graphId);
   const currentNode = graph?.nodes.find((n) => n.id === id);
-
-  const toggleDropdown = (type:string) => {
-    switch (type){
-      case 'category':
-        setIsNDropdownOpen(!isNDropdownOpen);
-        break;
-      case 'parent-category':
-        setIsPDropdownOpen(!isPDropdownOpen);
-        break;
-    }
-  }
 
   const selectNode = () => {
     if (currentGraphNodes?.includes(id)){ // Find node rect highlight ID and edges, de-highlight all of them
@@ -134,13 +124,13 @@ const GraphNode: React.FC<ResidentialGraphNodeData> = ({ id, label, graphId, nod
       case 'category':
         var newValue = target_.value;
         setNInputValue(newValue); // Update input value
-        setIsNDropdownOpen(true); // Show dropdown when typing
+        toggleDropdown(catDropdownRef.current, 'visible')
         break;
 
       case 'parent-category':
         var newValue = target_.value;
         setPInputValue(newValue); // Update input value
-        setIsPDropdownOpen(true); // Show dropdown when typing
+        toggleDropdown(pCatDropdownRef.current, 'visible')
         break;
     }
   };
@@ -160,7 +150,8 @@ const GraphNode: React.FC<ResidentialGraphNodeData> = ({ id, label, graphId, nod
         } else {
           setNCatValue(''); // Reset catValue or handle as needed if the input doesn't match any category
         }
-        setIsNDropdownOpen(false); // Close dropdown
+        toggleDropdown(catDropdownRef.current, 'hidden')
+        // setIsNDropdownOpen(false); // Close dropdown
         break;
 
       case 'parent-category':
@@ -171,7 +162,8 @@ const GraphNode: React.FC<ResidentialGraphNodeData> = ({ id, label, graphId, nod
         } else {
           setPCatValue(''); // Reset catValue or handle as needed if the input doesn't match any category
         }
-        setIsPDropdownOpen(false); // Close dropdown
+        toggleDropdown(pCatDropdownRef.current, 'hidden')
+        // setIsPDropdownOpen(false); // Close dropdown
         break;
     }
   };
@@ -219,11 +211,6 @@ const GraphNode: React.FC<ResidentialGraphNodeData> = ({ id, label, graphId, nod
         updateGraphData(graphId, updatedNodes);
         break;
     }
-  };
-
-  // Handle dropdown toggle
-  const handleToggleDropdown = () => {
-    setIsOpen(!isOpen);
   };
 
   // Function to handle adding a new node by emitting an event
@@ -276,18 +263,17 @@ const GraphNode: React.FC<ResidentialGraphNodeData> = ({ id, label, graphId, nod
   }, [graphs, nodeProperties])
 
   return (
-    <div id={`node-${id}`} ref={inputRef} className="node bg-white p-2 shadow-md rounded-md">
+    <div id={`node-${id}`} ref={inputRef} data-type="dropdown" data-state="visible" className="node bg-white p-2 shadow-md rounded-md">
       {/* Node header with toggle button */}
       <button
         className="w-full text-left font-bold text-md mb-1"
-        onClick={handleToggleDropdown}
+        onClick={() => toggleDropdown(nodeDropdownRef.current)}
       >
         {isOpen ? '▼' : '▶'} Node: {label} (ID: {id})
       </button>
 
       {/* Dropdown content */}
-      {isOpen && (
-        <div className="ml-4 space-y-2">
+        <div ref={nodeDropdownRef} data-type="dropdown" data-state="hidden" className="ml-4 space-y-2 hidden">
           {/* Split container with flexbox */}
           <div className="flex">
             {/* Left side: Properties */}
@@ -299,16 +285,16 @@ const GraphNode: React.FC<ResidentialGraphNodeData> = ({ id, label, graphId, nod
                 <p>Graph ID: {graphId}</p>
 
                 {nodeProperties && (
-                  <div className="mt-2 relative" style={{display:'flex', flexDirection:'column', gap:'5px'}}>
-                    <div style={{display:'flex', flexDirection:'row', position:'relative', justifyContent:'space-between'}}>
+                  <div className="mt-2 relative" style={{display:'flex', flexDirection:'column', gap:'3px'}}>
+                    <div style={{display:'flex', flexDirection:'row', position:'relative', justifyContent:'space-between', alignContent:'center', alignItems:'center'}}>
                       {/* Text Input for Filtering Options */}
-                      <label className="font-bold mr-2">Category:</label>
+                      <label style={{alignItems:'center'}} className="font-bold mr-2">Category:</label>
                       <div style={{display:'flex', flexDirection:'column', position:'relative'}}>
                         <input
                           type="text"
                           value={nInputValue} // Shows only the user's input
                           onChange={handleSelectInputChange}
-                          onClick={() => toggleDropdown('category')}
+                          onClick={() => toggleDropdown(catDropdownRef.current)}
                           className="border p-1 rounded"
                           style={{ border: '1px solid black' }}
                           data-prop="category"
@@ -316,46 +302,51 @@ const GraphNode: React.FC<ResidentialGraphNodeData> = ({ id, label, graphId, nod
                         />
 
                         {/* Dropdown for Filtered Options */}
-                        {isNDropdownOpen && filteredCategoryOptions.length > 0 && (
-                          <div
-                            className="absolute left-0 mt-1 w-full bg-white border border-gray-300 rounded shadow-md z-10"
-                            style={{ maxHeight: '200px', overflowY: 'auto', position:'absolute', top:'20px', zIndex:'1000'}} // Add max-height and overflow styles
-                          >
-                            {filteredCategoryOptions.map(([categoryName, categoryValue]) => (
-                              <div
-                                key={categoryValue}
-                                onClick={handleOptionSelect}
-                                className="cursor-pointer p-2 hover:bg-gray-100"
-                                data-prop="category"
-                                data-cat={categoryName}
-                              >
-                                {categoryName}
-                              </div>
-                            ))}
-                          </div>
-                        )}
+                        <div
+                          data-type="dropdown"
+                          data-prop="category"
+                          data-state="hidden"
+                          ref={catDropdownRef}
+                          className="absolute left-0 mt-1 w-full bg-white border border-gray-300 rounded shadow-md z-10 hidden"
+                          style={{ maxHeight: '200px', overflowY: 'auto', position:'absolute', top:'20px', zIndex:'1000'}} // Add max-height and overflow styles
+                        >
+                          {filteredCategoryOptions.map(([categoryName, categoryValue]) => (
+                            <div
+                              key={categoryValue}
+                              onClick={handleOptionSelect}
+                              className="cursor-pointer p-2 hover:bg-gray-100"
+                              data-prop="category"
+                              data-cat={categoryName}
+                            >
+                              {categoryName}
+                            </div>
+                          ))}
+                        </div>
                       </div>
 
                     </div>
 
-                    <div style={{display:'flex', flexDirection:'row', position:'relative', justifyContent:'space-between'}}>
-                      <label className="font-bold mr-2">Parent Category:</label>
+                    <div style={{display:'flex', flexDirection:'row', position:'relative', justifyContent:'space-between', alignContent:'center', alignItems:'center'}}>
+                      <label style={{alignItems:'center'}} className="font-bold mr-2">Parent Category:</label>
                       <div style={{display:'flex', flexDirection:'column', position:'relative'}}>
                         {/* Text Input for Filtering Options */}
                         <input
                           type="text"
                           value={pInputValue} // Shows only the user's input
                           onChange={handleSelectInputChange}
-                          onClick={() => toggleDropdown('parent-category')}
+                          onClick={() => toggleDropdown(pCatDropdownRef.current)}
                           className="border p-1 rounded"
                           style={{ border: '1px solid black' }}
                           data-prop="parent-category"
                         />
 
-                        {/* Dropdown for Filtered Options */}
-                        {isPDropdownOpen && filteredParentCategoryOptions.length > 0 && (
+                          {/* Dropdown for Filtered Options */}
                           <div
-                            className="absolute left-0 mt-1 w-full bg-white border border-gray-300 rounded shadow-md z-10"
+                            data-type="dropdown"
+                            data-prop="parent-category"
+                            ref={pCatDropdownRef}
+                            data-state="hidden"
+                            className="absolute left-0 mt-1 w-full bg-white border border-gray-300 rounded shadow-md z-10 hidden"
                             style={{ maxHeight: '200px', overflowY: 'auto', position:'absolute', top:'20px', zIndex:'1000' }} // Add max-height and overflow styles
                           >
                             {filteredParentCategoryOptions.map(([categoryName, categoryValue]) => (
@@ -370,12 +361,12 @@ const GraphNode: React.FC<ResidentialGraphNodeData> = ({ id, label, graphId, nod
                               </div>
                             ))}
                           </div>
-                        )}
+                          
                       </div>
 
                     </div>
 
-                    <div style={{display:'flex', flexDirection:'row', position:'relative', justifyContent:'space-between'}}>
+                    <div style={{display:'flex', flexDirection:'row', position:'relative', justifyContent:'space-between', alignContent:'center', alignItems:'center'}}>
                       {/* Text Input for Filtering Options */}
                       <label className="font-bold mr-2">Group ID:</label>
                       <input
@@ -453,7 +444,9 @@ const GraphNode: React.FC<ResidentialGraphNodeData> = ({ id, label, graphId, nod
                 })()}
 
             <button
-              onClick={() => setIsOpen(false)}
+              onClick={() => {
+                setIsOpen(!isOpen)
+                toggleDropdown(nodeDropdownRef.current)}}
               className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
             >
               Collapse
@@ -461,7 +454,6 @@ const GraphNode: React.FC<ResidentialGraphNodeData> = ({ id, label, graphId, nod
 
           </div>
         </div>
-      )}
     </div>
   );
 };

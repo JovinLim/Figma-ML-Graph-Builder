@@ -1,6 +1,6 @@
 import { getSelectedNodesOrAllNodes, loadFontsAsync, once, showUI, on } from '@create-figma-plugin/utilities'
 import { AddEdgeHandler, AddNodeHandler, AddNodesGroupHandler, AutoEdgeHandler, DehighlightAllNodesHandler, DehighlightNodesHandler, ExportGraphJSON, HighlightNodesHandler, InputNameHandler, InsertCodeHandler, NotifyHandler } from './types'
-import { generateUUID } from './lib/utils';
+import { generateUUID, UIHeight, UIWidth } from './lib/utils';
 import { FigmaNodeGeometryData, GraphFigmaNodesInterface } from './lib/core';
 
 export default function () {
@@ -268,7 +268,7 @@ export default function () {
       edgeLine.setPluginData('graph-builder', 'edge');
 
       // Set stroke properties
-      edgeLine.strokeWeight = 1;  // Stroke width
+      edgeLine.strokeWeight = 0.5;  // Stroke width
       edgeLine.strokes = [{
         type: 'SOLID',
         color: { r: 1, g: 0, b: 0 },  // Red color
@@ -338,10 +338,8 @@ export default function () {
   });
 
 
-  const wth_ratio = 4/3;
-  const height = 600;
-  const width = wth_ratio*height;
-  showUI({ height: height, width: width })
+
+  showUI({ height: UIHeight, width: UIWidth })
   
   figma.on('close', function () {
     // Find all nodes in the current page that have plugin data with the key 'graph-builder'

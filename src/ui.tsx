@@ -7,7 +7,7 @@ import {
   VerticalSpace
 } from '@create-figma-plugin/ui'
 import { emit } from '@create-figma-plugin/utilities'
-import { h, RefObject } from 'preact'
+import { h, JSX, RefObject } from 'preact'
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks'
 import { highlight, languages } from 'prismjs'
 import Editor from 'react-simple-code-editor'
@@ -15,11 +15,11 @@ import '!./output.css'
 import styles from './styles.css'
 import { AddNodeHandler, AutoEdgeHandler, DehighlightAllNodesHandler, DehighlightNodesHandler, ExportGraphJSON, InsertCodeHandler, NotifyHandler } from './types'
 import Graph from './components/Graph'
-import { generateUUID } from './lib/utils'
-import { DefaultResidentialEdgeCategory, ResidentialGraphData, ResidentialGraphEdgeData, ResidentialGraphJSONData, ResidentialGraphNodeData, ResidentialGraphNodeProperties, ResidentialGraphNodeJSONData, ResidentialGraphEdgeJSONData, ResidentialGraphProperties, ExternalUnitCategories, ResidentialEdgeCategories } from './lib/types'
+import { generateUUID, getRandomColor, toggleDropdown, UIHeight, UIWidth } from './lib/utils'
+import { DefaultResidentialEdgeCategory, ResidentialGraphData, ResidentialGraphEdgeData, ResidentialGraphJSONData, ResidentialGraphNodeData, ResidentialGraphNodeProperties, ResidentialGraphNodeJSONData, ResidentialGraphEdgeJSONData, ResidentialGraphProperties, ExternalUnitCategories, ResidentialEdgeCategories, ResidentialGraphDescriptor, ResidentialGraphAttachment, GraphGlobalProperties, defaultAreaUnit } from './lib/types'
 import { FigmaNodeGeometryData, GraphData, GraphEdgeData, GraphNodeData } from './lib/core'
 import { GraphProvider, useGraphContext } from './components/GraphContext'
-import React from 'preact/compat'
+import React, { ChangeEvent, createPortal } from 'preact/compat'
 import { ValidateResidentialUnitGraph } from './lib/types/residential/graph/validation'
 
 console.log("Starting Graph Builder Plugin...")
@@ -34,6 +34,7 @@ const Plugin: React.FC = () => {
     },
     [code]
   )
+  
 
   useEffect(function () {
     const containerElement = containerElementRef.current
@@ -68,15 +69,12 @@ const Plugin: React.FC = () => {
 const MainPage: React.FC<GraphActionButtonsProps> = () => {
   const {mode} = useGraphContext(); // Use the context to get the createGraph function
   return (
-    <div>
+    <div style={{width: `${UIWidth}`, height:`${UIHeight}`}}>
       {(() => {
         switch (mode) {
-          case 'input':
-            return <InputContainer />;
-
           default:
             return (
-              <Container space="large" className="relative h-full">
+              <Container space="large" className="relative h-full" style={{width: `100%`, height:`100%`}}>
                 <VerticalSpace space="small" />
 
                 {/* Consume the context to render graphs dynamically */}
@@ -101,8 +99,33 @@ interface InputContainerProps {
 
 const InputContainer: React.FC<InputContainerProps> = () => {
   const { updateGraphProps, mode, setMode, currentGraph } = useGraphContext();
+  // For unit descriptor
+  const [dInputValue, setDInputValue] = useState<string>("");
+
+  // For unit attachment
+  const [aInputValue, setAInputValue] = useState<string>("");
+
+  // For annotators
+  const [annotators, setAnnotators] = useState<JSX.Element[]>([]); // State to hold the names
+  const [annotatorInputValue, setAnnotatorInputValue] = useState<string>(''); // State to hold input value
+
+  // For comments
+  const [comments, setComments] = useState<JSX.Element[]>([]); // State to hold the names
+  const [commentsInputValue, setCommentsInputValue] = useState<string>(''); // State to hold input value
+
   const inputRef = useRef<HTMLInputElement>(null);
+  const dDropdownRef = useRef<HTMLDivElement>(null);
+  const aDropdownRef = useRef<HTMLDivElement>(null);
   
+  // Filter options dynamically based on user input for category or parent category
+  const filteredDescriptorOptions = Object.entries(ResidentialGraphDescriptor).filter(([key]) =>
+    key.toLowerCase().includes(dInputValue.toLowerCase())
+  );
+
+  const filteredAttachmentOptions = Object.entries(ResidentialGraphAttachment).filter(([key]) =>
+    key.toLowerCase().includes(aInputValue.toLowerCase())
+  );
+
   useEffect(() => {
     // Focus the input field and select its text when the component is rendered
     if (inputRef.current) {
@@ -114,19 +137,167 @@ const InputContainer: React.FC<InputContainerProps> = () => {
       const nameInput = document.getElementById('graphNameInput') as HTMLInputElement;
       const scaleInput = document.getElementById('graphScaleInput') as HTMLInputElement;
       const projectInput = document.getElementById('graphProjectInput') as HTMLInputElement;
-      const gradeInput = document.getElementById('graphGradeInput') as HTMLInputElement;
+      const BRInput = document.getElementById('graphBRInput') as HTMLInputElement;
+      const DescriptorInput = document.getElementById('graphDescriptorInput') as HTMLInputElement;
+      const AttachmentInput = document.getElementById('graphAttachmentInput') as HTMLInputElement;
+      const levelLowerInput = document.getElementById('graphLevelLowerInput') as HTMLInputElement;
+      const levelUpperInput = document.getElementById('graphLevelUpperInput') as HTMLInputElement;
 
-      nameInput.value = "test";
-      scaleInput.value = "1000";
-      projectInput.value = "Haus on Handy";
-      gradeInput.value = "1br A1";
+      nameInput.value = "Lorem Ipsum";
+      scaleInput.value = "200";
+      projectInput.value = "Avenue South Residence";
+      BRInput.value = "1";
     }
   }, [mode]); // Run this effect only once when the component mounts
 
-  const handleInputConfirm = (newName: string, graphScale: number, graphProject:string, graphGrade: string) => {
+  // Function to handle adding a new annotator
+  const handleAddAnnotator = () => {
+    if (annotatorInputValue.trim() !== '') {
+      const randomColor = getRandomColor(); // Generate random color
+      const annotatorDiv = (
+        <div
+          key={annotatorInputValue.trim()}
+          data-prop="annotator"
+          data-key={annotatorInputValue.trim()}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            padding: '5px 10px',
+            backgroundColor: randomColor, // Assign random background color
+            borderRadius: '5px',
+            color: '#fff',
+          }}
+        >
+          {annotatorInputValue.trim()}
+          <button
+            onClick={() => handleDeleteAnnotator(annotatorInputValue.trim())} // Delete name on click
+            style={{
+              marginLeft: '10px',
+              background: 'transparent',
+              border: 'none',
+              color: '#fff',
+              cursor: 'pointer',
+            }}
+          >
+            X
+          </button>
+        </div>
+      );
+
+      setAnnotators((prevAnnotators) => [...prevAnnotators, annotatorDiv]); // Add the new annotator div to the state
+      setAnnotatorInputValue(''); // Clear input field
+    }
+  };
+
+  // Function to handle deleting an annotator
+  const handleDeleteAnnotator = (name: string) => {
+    setAnnotators((prevAnnotators) =>
+      prevAnnotators.filter(
+        (annotator) => annotator.props['data-key'] !== name // Remove annotator with matching data-key
+      )
+    );
+  };
+
+  // Function to handle adding a new comment
+  const handleAddComment = () => {
+    if (commentsInputValue.trim() !== '') {
+      const commentId = generateUUID();
+      const commentDiv = (
+        <div style={{width:'100%'}}>
+          <div
+            key={commentsInputValue.trim()}
+            data-prop="comment"
+            data-key={commentId}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              padding: '5px 10px',
+              backgroundColor: 'rgb(240 240 240)', // Assign grey bg
+              borderRadius: '5px',
+              color: 'black',
+              textAlign: 'left',
+            }}
+          >
+            {commentsInputValue}
+            <button
+              onClick={() => handleDeleteComment(commentId)} // Delete name on click
+              style={{
+                marginLeft: '10px',
+                background: 'transparent',
+                border: 'none',
+                color: 'black',
+                cursor: 'pointer',
+              }}
+            >
+              X
+            </button>
+          </div>
+        </div>
+      );
+
+      setComments((prevComments) => [...prevComments, commentDiv]); // Add the new annotator div to the state
+      setCommentsInputValue(''); // Clear input field
+    }
+  };
+
+  // Function to handle deleting an comment
+  const handleDeleteComment = (id: string) => {
+    setComments((prevComments) =>
+      prevComments.filter(
+        (comment) => comment.props['data-key'] !== id // Remove annotator with matching data-key
+      )
+    );
+  };
+
+  // Handle level input change
+  const HandleTextInputChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const target_ = event.target as HTMLInputElement;
+    const prop_ = target_.getAttribute('data-prop');
+
+    switch (prop_) {
+      case 'level-upper':
+        var newValue = target_.value;
+        if (!Number.isInteger(Number(newValue))){
+          emit<NotifyHandler>('NOTIFY', true, "Please input a valid integer for level upper bound.")
+        }
+        break;
+
+      case 'level-lower':
+        var newValue = target_.value;
+        if (!Number.isInteger(Number(newValue))){
+          emit<NotifyHandler>('NOTIFY', true, "Please input a valid integer for level lower bound.")
+        }
+        break;
+    }
+  };
+
+  // Handle input change for descriptor and selector
+  const handleSelectInputChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const target_ = event.target as HTMLInputElement;
+    const prop_ = target_.getAttribute('data-prop');
+
+    switch (prop_) {
+      case 'descriptor':
+        var newValue = target_.value;
+        setDInputValue(newValue); // Update input value
+        toggleDropdown(dDropdownRef.current, 'visible');
+        break;
+
+      case 'attachment':
+        var newValue = target_.value;
+        setAInputValue(newValue); // Update input value
+        break;
+    }
+  };
+
+  const handleInputConfirm = (newName: string, graphScale: number, graphProject:string, 
+                              graphBR: number, graphDescriptor:string, graphAttachment:string, 
+                              graphLevels:number[], graphComments:string[], graphAnnotators:string[]) => {
     if (currentGraph){
       // Update the graph properties with the new name and switch back to 'default' mode
-      updateGraphProps(currentGraph, { name: newName, scale:graphScale, project: graphProject, grade:graphGrade } as ResidentialGraphProperties); // Assuming the graph properties include 'name'
+      updateGraphProps(currentGraph, { name: newName, scale:graphScale, project: graphProject, 
+                                       br:graphBR, descriptor:graphDescriptor, attachment:graphAttachment, 
+                                       levels:graphLevels, comments:graphComments, annotators:graphAnnotators} as ResidentialGraphProperties); // Assuming the graph properties include 'name'
       setMode('default');
     }
   };
@@ -135,22 +306,49 @@ const InputContainer: React.FC<InputContainerProps> = () => {
     const nameInput = document.getElementById('graphNameInput') as HTMLInputElement;
     const scaleInput = document.getElementById('graphScaleInput') as HTMLInputElement;
     const projectInput = document.getElementById('graphProjectInput') as HTMLInputElement;
-    const gradeInput = document.getElementById('graphGradeInput') as HTMLInputElement;
+    const BRInput = document.getElementById('graphBRInput') as HTMLInputElement;
+    const DescriptorInput = document.getElementById('graphDescriptorInput') as HTMLInputElement;
+    const AttachmentInput = document.getElementById('graphAttachmentInput') as HTMLInputElement;
+    const levelLowerInput = document.getElementById('graphLevelLowerInput') as HTMLInputElement;
+    const levelUpperInput = document.getElementById('graphLevelUpperInput') as HTMLInputElement;
 
-    if (nameInput && currentGraph && scaleInput && projectInput && gradeInput) {
+    if (nameInput && currentGraph && scaleInput && projectInput && BRInput && DescriptorInput && AttachmentInput) {
       try {
         const graphName = nameInput.value;
         const graphProject = projectInput.value;
-        const graphGrade = gradeInput.value;
         const graphScale = Number(scaleInput.value);
+        const graphBR = Number(BRInput.value);
+        const graphDescriptor = DescriptorInput.value;
+        const graphAttachment = AttachmentInput.value;
+        const graphLevelLower = Number(levelLowerInput.value);
+        const graphLevelUpper = Number(levelUpperInput.value);
 
-        if (graphName == "" || graphName == undefined || graphName == null) {emit<NotifyHandler>('NOTIFY', true, "Please input valid text for graph name.");}
-        else if (typeof graphScale !== "number" || graphScale==0){emit<NotifyHandler>('NOTIFY', true, "Please input a valid number for scale.");}
-        else if (graphProject == "" || graphProject == undefined || graphProject == null) {emit<NotifyHandler>('NOTIFY', true, "Please input valid text project name.");}
-        else if (graphGrade == "" || graphGrade == undefined || graphGrade == null) {emit<NotifyHandler>('NOTIFY', true, "Please input text valid grade.");}
-        else {
-          handleInputConfirm(graphName, graphScale, graphProject, graphGrade);
+        if (graphName == "" || graphName == undefined || graphName == null) {emit<NotifyHandler>('NOTIFY', true, "Please input valid text for graph name."); return;} // Name check
+        else if (typeof graphScale !== "number" || graphScale==0){emit<NotifyHandler>('NOTIFY', true, "Please input a valid number for scale."); return;} // Scale check
+        else if (graphProject == "" || graphProject == undefined || graphProject == null) {emit<NotifyHandler>('NOTIFY', true, "Please input valid text project name."); return;} // Project name check
+        else if (typeof graphBR !== "number" || graphBR==0 || !Number.isInteger(graphBR)){emit<NotifyHandler>('NOTIFY', true, "Please input a valid integer for bedrooms."); return;} // Bedrooms check
+        else if (graphDescriptor == "" || graphDescriptor == undefined || graphDescriptor == null) {emit<NotifyHandler>('NOTIFY', true, "Please input valid descriptor."); return;} // Descriptor check
+        else if (graphAttachment == "" || graphAttachment == undefined || graphAttachment == null) {emit<NotifyHandler>('NOTIFY', true, "Please input valid attachment."); return;} // Attachment check
+        else if (graphLevelLower == 0 || graphLevelUpper == 0 || graphLevelLower == undefined || graphLevelUpper == undefined || !Number.isInteger(graphLevelLower) || !Number.isInteger(graphLevelUpper)) {emit<NotifyHandler>('NOTIFY', true, "Please ensure upper and lower bound for levels are valid integers."); return;}
+        else if (graphLevelLower > graphLevelUpper){emit<NotifyHandler>('NOTIFY', true, "Please ensure level lower bound is smaller than upper bound."); return;} // Levels check - Lower > Upper
+        
+        const graphComments = [] as string[];
+        for (let c=0; c<comments.length; c++){
+          const commentElem_ = comments[c];
+          const comment_ = commentElem_.key;
+          if (typeof comment_ !== "string") {emit<NotifyHandler>('NOTIFY', true, "A comment is not a valid string. Please ensure all of them are proper texts"); return;}
+          graphComments.push(comment_);
         }
+
+        const graphAnnotators = [] as string[];
+        for (let a=0; a<annotators.length; a++){
+          const aElem_ = annotators[a];
+          const name_ = aElem_.key;
+          if (typeof name_ !== "string") {emit<NotifyHandler>('NOTIFY', true, "A name is not a valid string. Please ensure all of them are proper texts"); return;}
+          graphAnnotators.push(name_);
+        }
+
+        handleInputConfirm(graphName, graphScale, graphProject, graphBR, graphDescriptor, graphAttachment, [graphLevelLower, graphLevelUpper], graphComments, graphAnnotators);
       }
 
       catch {
@@ -164,45 +362,232 @@ const InputContainer: React.FC<InputContainerProps> = () => {
   };
 
   return (
-    <div className="space-y-3" style={{ padding: '16px', textAlign: 'left' }}>
-      <p style={{ fontSize:'16px' }}>Please enter a name for the graph:</p>
+    <div className="" style={{ padding: '16px', textAlign: 'left', maxWidth:'100%', maxHeight:'100%', height:'100%', width:'100%'}}>
+      <p style={{ height:'5%' ,fontSize:'16px' }}>Please enter a name for the graph:</p>
       <input 
       type="text" 
       id="graphNameInput" 
-      style={{ width: '100%', padding: '8px', border: '1px solid black' }}
+      style={{ height: '5%', width: '100%', padding: '8px', border: '1px solid black' }}
       ref={inputRef}
+      data-prop="name"
       placeholder="Graph Name" />
 
-      <div style={{ marginTop:'10px'}}>
-        <p style={{ fontSize:'16px' }}>Graph Properties</p>
-        <div id='graphProps' className="space-y-2" style={{textAlign: 'left', marginTop:'10px'}}>
+      <div style={{ marginTop:'10px', maxWidth:'100%', maxHeight:'75%', height:'75%', width:'100%'}}>
+        <p style={{ height:'5%',fontSize:'16px' }}>Graph Properties</p>
+        <div id='graphProps' className="space-y-2" style={{textAlign: 'left', marginTop:'20px', maxWidth:'100%', maxHeight:'90%', height:'90%', width:'100%', overflow:'scroll'}}>
+          {/* SCALE PROPERTY */}
           <div id='graphScaleContainer' style={{alignItems: 'center'}} className="flex">
             <p style={{width: '20%', textAlign: 'left', fontSize:'12px'}}>Scale (to mm)</p>
             <input 
               type="text" 
               id="graphScaleInput" 
               style={{ width: '20%', padding: '8px', border: '1px solid black' }}
+              data-prop="scale"
               placeholder="Enter scale here..." />
           </div>
 
+          {/* PROJECT NAME PROPERTY */}
           <div id='graphProjectContainer' style={{alignItems: 'center'}} className="flex">
             <p style={{width: '20%', textAlign: 'left', fontSize:'12px'}}>Project</p>
             <input 
               type="text" 
               id="graphProjectInput" 
               style={{ width: '20%', padding: '8px', border: '1px solid black' }}
+              data-prop="project"
               placeholder="Enter project name here..." />
           </div>
 
-          <div id='graphGradeContainer' style={{alignItems: 'center'}} className="flex">
-            <p style={{width: '20%', textAlign: 'left', fontSize:'12px'}}>Grade</p>
+          {/* BEDROOMS PROPERTY */}
+          <div id='graphBRContainer' style={{alignItems: 'center'}} className="flex">
+            <p style={{width: '20%', textAlign: 'left', fontSize:'12px'}}>Bedrooms</p>
             <input 
               type="text" 
-              id="graphGradeInput" 
+              id="graphBRInput" 
               style={{ width: '20%', padding: '8px', border: '1px solid black' }}
-              placeholder="Enter grade here..." />
+              data-prop="br"
+              placeholder="Number of bedrooms..." />
           </div>
 
+          {/* LEVELS PROPERTY */}
+          <div id="graphLevelsContainer" style={{ alignItems: 'center' }} className="flex">
+            <p style={{ width: '20%', textAlign: 'left', fontSize: '12px' }}>Levels</p>
+
+            {/* Input for Lower Bound */}
+            <input 
+              type="number" 
+              id="graphLevelLowerInput" 
+              style={{ width: '20%', padding: '8px', border: '1px solid black', marginRight: '5px' }} 
+              placeholder="Lower bound..." 
+              onChange={HandleTextInputChange}
+              data-prop="level-lower"
+            />
+
+            <span style={{ margin: '0 5px' }}>to</span> {/* Separator between lower and upper bounds */}
+
+            {/* Input for Upper Bound */}
+            <input 
+              type="number" 
+              id="graphLevelUpperInput" 
+              style={{ width: '20%', padding: '8px', border: '1px solid black', marginLeft: '5px' }} 
+              placeholder="Upper bound..." 
+              onChange={HandleTextInputChange}
+              data-prop="level-upper"
+            />
+          </div>
+
+          {/* DESCRIPTOR PROPERTY */}
+          <div id='graphDescriptorContainer' style={{alignItems: 'center', position:'relative', display:'flex', flexDirection:'row'}}>
+            <p style={{width: '20%', textAlign: 'left', fontSize:'12px'}}>Descriptor</p>
+            <div style={{display:'flex', flexDirection:'column', position:'relative', width: '20%'}}>
+              <input
+                type="text"
+                value={dInputValue} // Shows only the user's input
+                onChange={handleSelectInputChange}
+                onClick={() => toggleDropdown(dDropdownRef.current)}
+                style={{ padding: '8px', border: '1px solid black' }}
+                data-prop="descriptor"
+                id="graphDescriptorInput"
+                placeholder="Select descriptor here..."
+              />
+
+              {/* Dropdown for Filtered Options */}
+              <div
+                data-type="dropdown"
+                data-prop="descriptor"
+                data-state="hidden"
+                ref={dDropdownRef}
+                className={`absolute left-0 mt-1 w-full bg-white border shadow-md z-10 hidden`}
+                style={{ maxHeight: '200px', overflowY: 'auto', position:'absolute', top:'40px', zIndex:'1000'}}
+              >
+                {filteredDescriptorOptions.map(([descriptorName, descriptorValue]) => (
+                  <div
+                    key={descriptorValue}
+                    onClick={() => {
+                      setDInputValue(descriptorName);
+                      toggleDropdown(dDropdownRef.current, 'hidden');
+                    }}
+                    className="cursor-pointer p-2 hover:bg-gray-100"
+                    data-prop="descriptor"
+                    data-key={descriptorName}
+                  >
+                    {descriptorName}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* ATTACHMENT PROPERTY */}
+          <div id='graphAttachmentContainer' style={{alignItems: 'center', position:'relative', display:'flex', flexDirection:'row'}}>
+            <p style={{width: '20%', textAlign: 'left', fontSize:'12px'}}>Attachment</p>
+            <div style={{display:'flex', flexDirection:'column', position:'relative', width: '20%'}}>
+              <input
+                type="text"
+                value={aInputValue} // Shows only the user's input
+                onChange={handleSelectInputChange}
+                onClick={() => toggleDropdown(aDropdownRef.current)}
+                style={{ padding: '8px', border: '1px solid black' }}
+                data-prop="attachment"
+                id="graphAttachmentInput"
+                placeholder="Select attachment here..."
+              />
+
+              {/* Dropdown for Filtered Options */}
+              <div
+                data-type="dropdown"
+                data-prop="attachment"
+                data-state="hidden"
+                ref={aDropdownRef}
+                className={`absolute left-0 mt-1 w-full bg-white border shadow-md z-10 hidden`}
+                style={{ maxHeight: '200px', overflowY: 'auto', position:'absolute', top:'40px', zIndex:'1000'}}
+              >
+                {filteredAttachmentOptions.map(([attachmentName, attachmentValue]) => (
+                  <div
+                    key={attachmentValue}
+                    onClick={() => {
+                      setAInputValue(attachmentName);
+                      toggleDropdown(aDropdownRef.current, 'hidden');
+                    }}
+                    className="cursor-pointer p-2 hover:bg-gray-100"
+                    data-prop="attachment"
+                    data-key={attachmentName}
+                  >
+                    {attachmentName}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* ANNOTATORS PROPERTY */}
+          <div id="graphAnnotatorsContainer" style={{ alignItems: 'left', display:'flex', flexDirection:'column', rowGap:'5px' }}>
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <p style={{ width: '20%', textAlign: 'left', fontSize: '12px' }}>Annotators</p>
+              <input
+                type="text"
+                id="graphAnnotatorsInput"
+                value={annotatorInputValue}
+                onChange={(e) => setAnnotatorInputValue((e.target as HTMLInputElement).value)} // Update input value
+                style={{ width: '20%', padding: '8px', border: '1px solid black'}}
+                data-prop="annotator"
+                placeholder="Type a name here..."
+              />
+              <button
+                onClick={handleAddAnnotator}
+                style={{
+                  padding: '8px',
+                  border: '1px solid black',
+                  backgroundColor: '#f0f0f0',
+                  marginLeft: '5px',
+                  cursor: 'pointer',
+                }}
+              >
+                Add
+              </button>
+            </div>
+
+            {/* Container for displaying added annotators */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px' }}>
+              <div style={{width: '20%'}}></div>
+              {annotators.map((annotator) => annotator)} {/* Render annotator divs from state */}
+            </div>
+          </div>
+
+          {/* COMMENTS PROPERTY */}
+          <div id="graphCommentsContainer" style={{ alignItems: 'left', display:'flex', flexDirection:'column', rowGap:'5px' }}>
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <p style={{ width: '20%', textAlign: 'left', fontSize: '12px' }}>Comments</p>
+              <input
+                type="text"
+                id="graphCommentsInput"
+                value={commentsInputValue}
+                onChange={(e) => setCommentsInputValue((e.target as HTMLInputElement).value)} // Update input value
+                style={{ width: '20%', padding: '8px', border: '1px solid black'}}
+                data-prop="comments"
+                placeholder="Type a comment here..."
+              />
+              <button
+                onClick={handleAddComment}
+                style={{
+                  padding: '8px',
+                  border: '1px solid black',
+                  backgroundColor: '#f0f0f0',
+                  marginLeft: '5px',
+                  cursor: 'pointer',
+                }}
+              >
+                Add
+              </button>
+            </div>
+
+            {/* Container for displaying added annotators */}
+            <div style={{ display: 'flex', flexDirection:'row'}}>
+            <div style={{width: '20%'}}></div>
+            <div style={{display:'flex', flexDirection:'column'}}>
+              {comments.map((comment) => comment)} {/* Render comments divs from state */}
+            </div>
+            </div>
+          </div>
 
         </div>
       </div>
@@ -216,9 +601,6 @@ const InputContainer: React.FC<InputContainerProps> = () => {
             Confirm
         </button>
       </div>
-
-
-
     </div>
   );
 };
@@ -486,12 +868,23 @@ const EventDispatcher: React.FC = () => {
         }, 0);
 
         const project_ = (graph_ as ResidentialGraphData)?.graphProperties?.project ? (graph_ as ResidentialGraphData)?.graphProperties?.project : "unknown"
-        const grade_ = (graph_ as ResidentialGraphData).graphProperties?.grade ? (graph_ as ResidentialGraphData)?.graphProperties?.grade : "unknown"
+        const br_ = (graph_ as ResidentialGraphData)?.graphProperties?.br ? (graph_ as ResidentialGraphData)?.graphProperties?.br : "unknown"
+        const descriptor_ = (graph_ as ResidentialGraphData)?.graphProperties?.descriptor ? ResidentialGraphDescriptor[(graph_ as ResidentialGraphData)?.graphProperties?.descriptor as keyof typeof ResidentialGraphDescriptor] : "unknown"
+        const attachment_ = (graph_ as ResidentialGraphData)?.graphProperties?.attachment ? ResidentialGraphAttachment[(graph_ as ResidentialGraphData)?.graphProperties?.attachment as keyof typeof ResidentialGraphAttachment] : "unknown"
+        const levels_ = (graph_ as ResidentialGraphData)?.graphProperties?.levels ? (graph_ as ResidentialGraphData)?.graphProperties?.levels : "unknown"
+        const comments = (graph_ as ResidentialGraphData)?.graphProperties?.comments ? (graph_ as ResidentialGraphData)?.graphProperties?.comments : "unknown"
+        const annotators = (graph_ as ResidentialGraphData)?.graphProperties?.annotators ? (graph_ as ResidentialGraphData)?.graphProperties?.annotators : "unknown"
+        const grade_ = `${br_}br_${descriptor_}_${attachment_}`;
+
         const graphGlobalInfo = {
           grade: grade_,
           area: graphTotalArea,
-          project: project_
-        }
+          project: project_,
+          area_unit: defaultAreaUnit,
+          levels: levels_,
+          comments: comments,
+          annotators: annotators,
+        } as GraphGlobalProperties;
 
         const graphJSON = {
           nodes: nodesJsonData,

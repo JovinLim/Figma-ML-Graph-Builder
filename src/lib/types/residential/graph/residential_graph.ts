@@ -17,7 +17,11 @@ export interface ResidentialGraphJSONData {
 }
 
 export interface ResidentialUnitGlobalInfo {
-  grade: string,
-  project: string,
+  grade: string
   area: number
+  area_unit: string
+  levels: number[]
+  comments: string[]
+  annotators: string[]
+  project: string
 }
