@@ -16,6 +16,11 @@ const Graph: React.FC<ResidentialGraphData> = ({ id, nodes, edges, graphProperti
     const [edgesDropdownOpen, setEdgesDropdownOpen] = useState<boolean>(false);
     const {graphs, setCurrentGraph, setHighlightedNodes, highlightedNodes, mode, setMode, updateGraphData, deleteGraph} = useGraphContext();
 
+    const HandleEditGraphProperties = () => {
+        setCurrentGraph(id);
+        setMode('input');
+    }
+
     const handleCheckboxChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const target_ = event.target as HTMLInputElement;
         setUseNodeLabels(target_.checked);
@@ -266,18 +271,28 @@ const Graph: React.FC<ResidentialGraphData> = ({ id, nodes, edges, graphProperti
 
                 {/* Graph Properties Display */}
                 <div id={`graph-${id}-properties`} className="bg-gray-100 p-2 rounded-md shadow-md">
-                <h3 className="text-md font-bold mb-2">Graph Properties</h3>
-                <div className="ml-4 space-y-1">
-                    {graphProperties ? (
-                    Object.entries(graphProperties).map(([key, value]) => (
-                        <p key={key} className="text-sm">
-                        <strong>{key}:</strong> {value}
-                        </p>
-                    ))
-                    ) : (
-                    <p className="text-sm">No properties available.</p>
-                    )}
+                    <h3 className="text-md font-bold mb-2">Graph Properties</h3>
+                    <div className="ml-4 space-y-1">
+                        {graphProperties ? (
+                        Object.entries(graphProperties).map(([key, value]) => (
+                            <p key={key} className="text-sm">
+                            <strong>{key}:</strong> {value}
+                            </p>
+                        ))
+                        ) : (
+                        <p className="text-sm">No properties available.</p>
+                        )}
+                    </div>
                 </div>
+
+
+                <div className="mt-4 space-x-2" style={{display:'flex', flexDirection:'row', height:'auto'}}>
+                    <button
+                        onClick={HandleEditGraphProperties}
+                        className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-blue-600"
+                    >
+                        Edit Graph Properties
+                    </button>
                 </div>
 
             </div>

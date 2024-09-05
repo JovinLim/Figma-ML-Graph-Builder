@@ -68,16 +68,16 @@ export function ValidateResidentialUnitGraph(graph: ResidentialGraphData) {
         emit<NotifyHandler>('NOTIFY', true, `Node "${node.label}" has no category (cat) assigned.`);
         return false;
       }
-  
+      
       if (!nodeProps.pcat || nodeProps.pcat.trim() === "") {
         emit<NotifyHandler>('NOTIFY', true, `Node "${node.label}" has no parent category (pcat) assigned.`);
         return false;
       }
 
-      if (!nodeProps.gid || Number.isSafeInteger(nodeProps.gid) ) {
-        emit<NotifyHandler>('NOTIFY', true, `Node "${node.label}" has no parent category (pcat) assigned.`);
-        return false;
-      }
+      // if (!nodeProps.gid || !Number.isSafeInteger(nodeProps.gid) ) {
+      //   emit<NotifyHandler>('NOTIFY', true, `Node "${node.label}" has no gid assigned.`);
+      //   return false;
+      // }
   
       if (!nodeProps.edges || nodeProps.edges.length === 0) {
         emit<NotifyHandler>('NOTIFY', true, `Node "${node.label}" has either no edges or invalid edges assigned.`);

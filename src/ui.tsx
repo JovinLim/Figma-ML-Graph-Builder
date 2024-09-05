@@ -72,6 +72,9 @@ const MainPage: React.FC<GraphActionButtonsProps> = () => {
     <div style={{width: `${UIWidth}`, height:`${UIHeight}`}}>
       {(() => {
         switch (mode) {
+          case 'input':
+            return <InputContainer/>;
+
           default:
             return (
               <Container space="large" className="relative h-full" style={{width: `100%`, height:`100%`}}>
@@ -98,7 +101,9 @@ interface InputContainerProps {
 }
 
 const InputContainer: React.FC<InputContainerProps> = () => {
-  const { updateGraphProps, mode, setMode, currentGraph } = useGraphContext();
+  const { updateGraphProps, mode, setMode, currentGraph, graphs } = useGraphContext();
+
+
   // For unit descriptor
   const [dInputValue, setDInputValue] = useState<string>("");
 
@@ -125,30 +130,6 @@ const InputContainer: React.FC<InputContainerProps> = () => {
   const filteredAttachmentOptions = Object.entries(ResidentialGraphAttachment).filter(([key]) =>
     key.toLowerCase().includes(aInputValue.toLowerCase())
   );
-
-  useEffect(() => {
-    // Focus the input field and select its text when the component is rendered
-    if (inputRef.current) {
-      inputRef.current.focus(); // Focus the input element
-      inputRef.current.select(); // Select the existing text
-    }
-
-    if (debug) {
-      const nameInput = document.getElementById('graphNameInput') as HTMLInputElement;
-      const scaleInput = document.getElementById('graphScaleInput') as HTMLInputElement;
-      const projectInput = document.getElementById('graphProjectInput') as HTMLInputElement;
-      const BRInput = document.getElementById('graphBRInput') as HTMLInputElement;
-      const DescriptorInput = document.getElementById('graphDescriptorInput') as HTMLInputElement;
-      const AttachmentInput = document.getElementById('graphAttachmentInput') as HTMLInputElement;
-      const levelLowerInput = document.getElementById('graphLevelLowerInput') as HTMLInputElement;
-      const levelUpperInput = document.getElementById('graphLevelUpperInput') as HTMLInputElement;
-
-      nameInput.value = "Lorem Ipsum";
-      scaleInput.value = "200";
-      projectInput.value = "Avenue South Residence";
-      BRInput.value = "1";
-    }
-  }, [mode]); // Run this effect only once when the component mounts
 
   // Function to handle adding a new annotator
   const handleAddAnnotator = () => {
@@ -274,13 +255,13 @@ const InputContainer: React.FC<InputContainerProps> = () => {
   // Handle input change for descriptor and selector
   const handleSelectInputChange = (event: ChangeEvent<HTMLInputElement>) => {
     const target_ = event.target as HTMLInputElement;
+    console.log(target_)
     const prop_ = target_.getAttribute('data-prop');
 
     switch (prop_) {
       case 'descriptor':
         var newValue = target_.value;
         setDInputValue(newValue); // Update input value
-        toggleDropdown(dDropdownRef.current, 'visible');
         break;
 
       case 'attachment':
@@ -360,6 +341,73 @@ const InputContainer: React.FC<InputContainerProps> = () => {
       emit<NotifyHandler>('NOTIFY', true, "Please input valid values for all fields.");
     }
   };
+
+
+  useEffect(() => {
+    if (currentGraph){
+      console.log('Editing graph details...')
+      const nameInput = document.getElementById('graphNameInput') as HTMLInputElement;
+      const scaleInput = document.getElementById('graphScaleInput') as HTMLInputElement;
+      const projectInput = document.getElementById('graphProjectInput') as HTMLInputElement;
+      const BRInput = document.getElementById('graphBRInput') as HTMLInputElement;
+      const DescriptorInput = document.getElementById('graphDescriptorInput') as HTMLInputElement;
+      const AttachmentInput = document.getElementById('graphAttachmentInput') as HTMLInputElement;
+      const levelLowerInput = document.getElementById('graphLevelLowerInput') as HTMLInputElement;
+      const levelUpperInput = document.getElementById('graphLevelUpperInput') as HTMLInputElement;
+      
+      const graph_ = graphs.find((g) => g.id===currentGraph);
+      if (graph_) {
+        const graphProps_ = graph_.graphProperties as ResidentialGraphProperties;
+        if (graphProps_){
+          if (graphProps_.name){nameInput.value = graphProps_.name ? graphProps_.name as string : "";}
+          if (graphProps_.scale){scaleInput.value = graphProps_.scale ? (graphProps_.scale).toString() as string : "";}
+          if (graphProps_.project){projectInput.value = graphProps_.project ? graphProps_.project as string : "";}
+          if (graphProps_.br){BRInput.value = graphProps_.br ? (graphProps_.br).toString() as string : "";}
+          // if (graphProps_.descriptor){DescriptorInput.value = graphProps_.descriptor ? (graphProps_.descriptor) as string : "";}
+          if (graphProps_.descriptor){setDInputValue(graphProps_.descriptor ? (graphProps_.descriptor) as string : "");}
+          // if (graphProps_.attachment){AttachmentInput.value = graphProps_.attachment ? graphProps_.attachment as string : "";}
+          if (graphProps_.attachment){setAInputValue(graphProps_.attachment ? graphProps_.attachment as string : "");}
+          if (graphProps_.levels){levelLowerInput.value = graphProps_.levels ? graphProps_.levels[0].toString() as string : "";}
+          if (graphProps_.levels){levelUpperInput.value = graphProps_.levels ? graphProps_.levels[1].toString() as string : "";}
+    
+          if (graphProps_.annotators){
+            const graphAnnotators = graphProps_.annotators as string[];
+            if (graphAnnotators.length > 0){
+              for (let ga=0; ga < graphAnnotators.length; ga++){
+                setAnnotatorInputValue(graphAnnotators[ga])
+                handleAddAnnotator()
+              }
+            }
+          }
+    
+          if (graphProps_.comments){
+            const graphComments = graphProps_.comments;
+            if (graphComments.length > 0){
+              for (let gc=0; gc< graphComments.length; gc++){
+                setCommentsInputValue(graphComments[gc])
+                handleAddComment()
+              }
+            }
+          }
+        }
+      }
+    }
+
+    if (debug) {
+      const nameInput = document.getElementById('graphNameInput') as HTMLInputElement;
+      const scaleInput = document.getElementById('graphScaleInput') as HTMLInputElement;
+      const projectInput = document.getElementById('graphProjectInput') as HTMLInputElement;
+      const BRInput = document.getElementById('graphBRInput') as HTMLInputElement;
+      const DescriptorInput = document.getElementById('graphDescriptorInput') as HTMLInputElement;
+      const AttachmentInput = document.getElementById('graphAttachmentInput') as HTMLInputElement;
+      const levelLowerInput = document.getElementById('graphLevelLowerInput') as HTMLInputElement;
+      const levelUpperInput = document.getElementById('graphLevelUpperInput') as HTMLInputElement;
+      nameInput.value = "Lorem Ipsum";
+      scaleInput.value = "200";
+      projectInput.value = "Avenue South Residence";
+      BRInput.value = "1";
+    }
+  }, [currentGraph, mode]); // Run this effect only once when the component mounts
 
   return (
     <div className="" style={{ padding: '16px', textAlign: 'left', maxWidth:'100%', maxHeight:'100%', height:'100%', width:'100%'}}>

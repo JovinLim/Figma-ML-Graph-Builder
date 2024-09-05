@@ -244,6 +244,7 @@ const GraphNode: React.FC<ResidentialGraphNodeData> = ({ id, label, graphId, nod
     // if (nodeProperties?.cat){
     //   setNInputValue(nodeProperties.cat)
     // }
+    console.log(graph)
 
     const handleEdgesAdded = (event: Event) => {
       const { graphId } = (event as CustomEvent).detail;
