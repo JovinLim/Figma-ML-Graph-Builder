@@ -751,6 +751,30 @@ const EventDispatcher: React.FC = () => {
             // If one of the nodes is in ExternalUnitCategories and the other is not, assign 'Adjacent' category
             edgeCat = ResidentialEdgeCategories['Adjacent'];
           }
+
+          // Check if one of node categories is ac ledge and other is anything other than balcony -> adjacent
+          if (
+            sourceCat &&
+            targetCat &&
+            ((sourceCat.toLowerCase() == 'ac ledge' && targetCat.toLowerCase() !== "balcony") ||
+             (targetCat.toLowerCase() == 'ac ledge' && sourceCat.toLowerCase() !== 'balcony')
+          )
+          ) {
+            // If one of the nodes is in ExternalUnitCategories and the other is not, assign 'Adjacent' category
+            edgeCat = ResidentialEdgeCategories['Adjacent'];
+          }
+
+          // Check if one of the node categories is ExternalUnitCategories and one is entrance -> direct access
+          if (
+            sourceCat &&
+            targetCat &&
+            ((sourceCat.toLowerCase() == 'entrance' && ExternalUnitCategories[targetCat as keyof typeof ExternalUnitCategories]) ||
+             (targetCat.toLowerCase() == 'entrance' && ExternalUnitCategories[sourceCat as keyof typeof ExternalUnitCategories])
+          )) {
+            // If one of the nodes is in ExternalUnitCategories and the other is not, assign 'Adjacent' category
+            edgeCat = ResidentialEdgeCategories['Direct Access'];
+          }
+
         }
     
         // Construct new edge data

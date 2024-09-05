@@ -289,9 +289,15 @@ const Graph: React.FC<ResidentialGraphData> = ({ id, nodes, edges, graphProperti
                     <div className="ml-4 space-y-1">
                         {graphProperties ? (
                         Object.entries(graphProperties).map(([key, value]) => (
+                            key === "levels" ? (
                             <p key={key} className="text-sm">
-                            <strong>{key}:</strong> {value}
+                                <strong>{key}:</strong> {Array.isArray(value) ? `[${value.join(', ')}]` : value}
                             </p>
+                            ) : (
+                            <p key={key} className="text-sm">
+                                <strong>{key}:</strong> {value}
+                            </p>
+                            )
                         ))
                         ) : (
                         <p className="text-sm">No properties available.</p>

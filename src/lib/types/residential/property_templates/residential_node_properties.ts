@@ -50,6 +50,9 @@ export const ResidentialNodeCategories = {
     'Family Room' : 'family',
     'Studio' : 'studio',
     'Kitchenette' : 'kitchenette',
+    'Lobby Stair' : 'lobby_stair',
+    'Powder Room' : 'powder_room',
+    'Refuse Chute' : 'refuse_chute',
 }
 
 export const ExternalUnitCategories = {
@@ -59,4 +62,5 @@ export const ExternalUnitCategories = {
     'Private Lift Lobby' : 'private_lift_lobby',
     'Adjacent Lobby Lift' : 'lobby_lift',
     'External' : 'external',
+    'Lobby Stair' : 'lobby_stair',
 }
