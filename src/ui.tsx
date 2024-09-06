@@ -772,7 +772,7 @@ const EventDispatcher: React.FC = () => {
              (targetCat.toLowerCase() == 'entrance' && ExternalUnitCategories[sourceCat as keyof typeof ExternalUnitCategories])
           )) {
             // If one of the nodes is in ExternalUnitCategories and the other is not, assign 'Adjacent' category
-            edgeCat = ResidentialEdgeCategories['Direct Access'];
+            edgeCat = ResidentialEdgeCategories['Door'];
           }
 
         }
