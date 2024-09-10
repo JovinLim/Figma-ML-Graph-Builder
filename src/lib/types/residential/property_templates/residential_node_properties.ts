@@ -101,14 +101,14 @@ export const dryKitchenComponents = [
 ]
 
 export const bathComponents = [
-    'Shower',
-    'shower',
-    'W/C (toilet + sink only)',
-    'wc',
     'Bathroom (adjacent to toilet + shower)',
     'bath',
+    'W/C (toilet + sink only)',
+    'wc',
     'Shaft',
     'shaft',
+    'Shower',
+    'shower',
 ]
 
 export const kitchenComponents = [
@@ -144,10 +144,12 @@ export const masterBedroomComponents = [
 export const masterBathroomComponents = [
     'Master Bathroom',
     'm_bath',
-    'Shaft',
-    'shaft',
     'W/C (toilet + sink only)',
     'wc',
+    'Shaft',
+    'shaft',
+    'Shower',
+    'shower',
 ]
 
 export const juniorMasterBedroomComponents = [
@@ -162,10 +164,12 @@ export const juniorMasterBedroomComponents = [
 export const juniorMasterBathroomComponents = [
     'Junior Master Bathroom',
     'j_bath',
-    'Shaft',
-    'shaft',
     'W/C (toilet + sink only)',
     'wc',
+    'Shaft',
+    'shaft',
+    'Shower',
+    'shower',
 ]
 
 export const lobbyComponents = [

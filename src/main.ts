@@ -125,58 +125,64 @@ export default function () {
     }
   })
 
-  on<AutoEdgeHandler>('AUTO_EDGE', async function (graphId: string, nodeId: string, gNodeIds: string[]) {
-    const cNode_ = await figma.getNodeByIdAsync(nodeId) as RectangleNode | PolygonNode | GroupNode;
-    const nodesData = [] as { tNodeId: string; tNodeName: string; graphId: string; nodeId: string }[]; // Array to store edges data
+  on<AutoEdgeHandler>('AUTO_EDGE', async function (graphId: string, nodeIds: string[], gNodeIds: string[][]) {
+    const compiledNodesData = [] as { tNodeId: string; tNodeName: string; graphId: string; nodeId: string }[][]; // Array to store edges data
+    for (let n=0; n<nodeIds.length; n++){
+      const nodeId = nodeIds[n];
+      const cNode_ = await figma.getNodeByIdAsync(nodeId) as RectangleNode | PolygonNode | GroupNode;
+      const nodesData = [] as { tNodeId: string; tNodeName: string; graphId: string; nodeId: string }[]; // Array to store edges data
+      
+      if (!cNode_ || !cNode_.absoluteBoundingBox) {
+        console.error('Current node not found or does not have an absoluteBoundingBox.');
+        return;
+      }
     
-    if (!cNode_ || !cNode_.absoluteBoundingBox) {
-      console.error('Current node not found or does not have an absoluteBoundingBox.');
-      return;
-    }
+      const cNodeBox = cNode_.absoluteBoundingBox as Rect;
+    
+      // Define a threshold distance to consider nodes as "beside" or "above/below" each other
+      const margin = 3; // Adjust the margin value based on your requirements
+    
+      for (let g = 0; g < gNodeIds[n].length; g++) {
+        const gNodeId = gNodeIds[n][g];
+        const fNode = await figma.getNodeByIdAsync(gNodeId) as RectangleNode | PolygonNode | GroupNode;
+    
+        if (!fNode || !fNode.absoluteBoundingBox) {
+          console.error(`Node with ID ${gNodeId} not found or does not have an absoluteBoundingBox.`);
+          continue;
+        }
+    
+        const fNodeBox = fNode.absoluteBoundingBox as Rect;
+        
+        const alignedHorizontal = 
+        ((cNodeBox.x >= fNode.x) && (fNodeBox.x + fNodeBox.width >= cNodeBox.x)) ||
+        ((fNodeBox.x >= cNodeBox.x) && (cNodeBox.x + cNodeBox.width >= fNodeBox.x)) ||
+        (Math.abs(fNodeBox.x + fNodeBox.width - cNodeBox.x) <= margin) ||
+        (Math.abs(cNodeBox.x + cNodeBox.width - fNodeBox.x) <= margin)
   
-    const cNodeBox = cNode_.absoluteBoundingBox as Rect;
-  
-    // Define a threshold distance to consider nodes as "beside" or "above/below" each other
-    const margin = 3; // Adjust the margin value based on your requirements
-  
-    for (let n = 0; n < gNodeIds.length; n++) {
-      const gNodeId = gNodeIds[n];
-      const fNode = await figma.getNodeByIdAsync(gNodeId) as RectangleNode | PolygonNode | GroupNode;
-  
-      if (!fNode || !fNode.absoluteBoundingBox) {
-        console.error(`Node with ID ${gNodeId} not found or does not have an absoluteBoundingBox.`);
-        continue;
+        const alignedVertical =
+        ((cNodeBox.y >= fNode.y) && (fNodeBox.y + fNodeBox.height >= cNodeBox.y)) ||
+        ((fNodeBox.y >= cNodeBox.y) && (cNodeBox.y + cNodeBox.height >= fNodeBox.y)) ||
+        (Math.abs(fNodeBox.y + fNodeBox.height - cNodeBox.y) <= margin) ||
+        (Math.abs(cNodeBox.y + cNodeBox.height - fNodeBox.y) <= margin)
+        
+        if (alignedHorizontal && alignedVertical) {
+          // If nodes are aligned horizontally and vertically, create an edge
+          nodesData.push({
+            tNodeId: fNode.id,
+            tNodeName: fNode.name,
+            graphId: graphId,
+            nodeId: nodeId,
+          });
+        }
       }
-  
-      const fNodeBox = fNode.absoluteBoundingBox as Rect;
-      
-      const alignedHorizontal = 
-      ((cNodeBox.x >= fNode.x) && (fNodeBox.x + fNodeBox.width >= cNodeBox.x)) ||
-      ((fNodeBox.x >= cNodeBox.x) && (cNodeBox.x + cNodeBox.width >= fNodeBox.x)) ||
-      (Math.abs(fNodeBox.x + fNodeBox.width - cNodeBox.x) <= margin) ||
-      (Math.abs(cNodeBox.x + cNodeBox.width - fNodeBox.x) <= margin)
 
-      const alignedVertical =
-      ((cNodeBox.y >= fNode.y) && (fNodeBox.y + fNodeBox.height >= cNodeBox.y)) ||
-      ((fNodeBox.y >= cNodeBox.y) && (cNodeBox.y + cNodeBox.height >= fNodeBox.y)) ||
-      (Math.abs(fNodeBox.y + fNodeBox.height - cNodeBox.y) <= margin) ||
-      (Math.abs(cNodeBox.y + cNodeBox.height - fNodeBox.y) <= margin)
-      
-      if (alignedHorizontal && alignedVertical) {
-        // If nodes are aligned horizontally and vertically, create an edge
-        nodesData.push({
-          tNodeId: fNode.id,
-          tNodeName: fNode.name,
-          graphId: graphId,
-          nodeId: nodeId,
-        });
-      }
+      compiledNodesData.push(nodesData);
     }
   
     // Send the list of edges to the UI
     figma.ui.postMessage({
       type: 'auto-edges',
-      rNodes: nodesData, // Send the list of selected nodes
+      rNodes: compiledNodesData, // Send the list of selected nodes
       graphId: graphId,
     });
   });

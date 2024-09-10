@@ -28,7 +28,7 @@ export interface AddEdgeHandler extends EventHandler {
 
 export interface AutoEdgeHandler extends EventHandler {
   name: 'AUTO_EDGE'
-  handler: (graphId:string, nodeId:string, gNodeIds:string[]) => void
+  handler: (graphId:string, nodeIds:string[], gNodeIds:string[][]) => void
 }
 
 export interface InputNameHandler extends EventHandler {

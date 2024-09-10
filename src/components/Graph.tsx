@@ -115,66 +115,71 @@ const Graph: React.FC<ResidentialGraphData> = ({ id, nodes, edges, graphProperti
         }
     };
 
-    const handleAutoParents = async(event:Event) => {
-        const { graphId } = (event as CustomEvent).detail;
-        if (graphId === id) {
-            console.log("Automatically adding parents to nodes...");
-            const nodeIds = nodes.map((n) => n.id) as string[]; // For checking if we missed out any nodes later, ensure all nodes are accounted for when updating graph.
-            const processedNodeIds = [] as string[];
-            const newNodes = [] as ResidentialGraphNodeData[];
-            for (let n=0; n<nodes.length; n++){
-                const node_ = nodes[n];
-                if (processedNodeIds.includes(node_.graphId)) {continue; } // If nodeIds contains current node id, it means that it has been processed.
-                const newNode: ResidentialGraphNodeData = { id: node_.id, label: node_.label, graphId: node_.graphId};
-
-                // Check if node belongs to a master category
-                // Determine those that are mutually exclusive first, then check edges for 'ACCESS'.
-                // For those that have 'ACCESS', check if it is in the master category component list.
-                // If they exist in the list, assign the same parent category.
-                // Skipping those nodes which category is not a master category, as it will be filled by checking the edges of those with master categories.
-                const nodeProps = node_.nodeProperties;
-                if (nodeProps){
-                    const nodeCat_ = nodeProps.cat;
-                    if (nodeCat_ && Object.keys(masterComponentParentList).includes(nodeCat_)){ // Node category is a master category
-                        const nodeProperties = {
-                            edges: nodeProps.edges,
-                            cat: nodeCat_,
-                            pcat: nodeCat_
-                        };
-                        newNode.nodeProperties = nodeProperties;
-                        newNodes.push(newNode);
-                        processedNodeIds.push(node_.id);
-
-                        const cNodeEdges_ = node_.nodeProperties?.edges;
-                        if (cNodeEdges_){
-                            for (let e=0; e<cNodeEdges_.length; e++){
-                                const edge_ = edges.find(e_ => e_.id == cNodeEdges_[e]);
-                                const edgeCat_ = edge_?.edgeProperties.cat;
-                                if (edgeCat_ && edgeCat_=='ACCESS'){
-                                    var oNode_: ResidentialGraphNodeData | undefined;
-                                    // Determine whether other node being considered is source or target node
-                                    if (node_.id == edge_.sourceNodeId) { // Current node is source node, other node is target node
-                                        oNode_ = nodes.find(n => n.id == edge_.targetNodeId);
-                                    }
-
-                                    else {
-                                        oNode_ = nodes.find(n => n.id == edge_.sourceNodeId);
-                                    }
-
-                                    // Find master category of oNode
-                                    if (oNode_ && oNode_.nodeProperties){
-                                        const newONode: ResidentialGraphNodeData = { id: oNode_.id, label: oNode_.label, graphId: oNode_.graphId};
-                                        const oNodeProps_ = oNode_.nodeProperties;
-                                        const subCategories = masterComponentParentList[nodeCat_ as keyof typeof masterComponentParentList];
-                                        if (subCategories && subCategories.includes(oNodeProps_.cat)){
-                                            const nodeProperties = {
-                                                edges: oNodeProps_.edges,
-                                                cat: oNodeProps_.cat,
-                                                pcat: nodeCat_
-                                            };
-                                            newONode.nodeProperties = nodeProperties;
-                                            newNodes.push(newONode);
-                                            processedNodeIds.push(newONode.id);
+    const handleAutoParents = (event:Event) => {
+        const { graphId, newEdges } = (event as CustomEvent).detail;
+        if (graphId === id && newEdges && newEdges.length > 0 && nodes && nodes.length > 0) {
+            updateGraphData(graphId, [], newEdges).then(() => {
+                console.log("Automatically adding parents to nodes...");
+                const nodeIds = nodes.map((n) => n.id) as string[]; // For checking if we missed out any nodes later, ensure all nodes are accounted for when updating graph.
+                const processedNodeIds = [] as string[];
+                const newNodes = [] as ResidentialGraphNodeData[];
+                for (let n=0; n<nodes.length; n++){
+                    const node_ = nodes[n];
+                    if (processedNodeIds.includes(node_.id)) {continue; } // If nodeIds contains current node id, it means that it has been processed.
+                    const newNode: ResidentialGraphNodeData = { id: node_.id, label: node_.label, graphId: node_.graphId};
+    
+                    // Check if node belongs to a master category
+                    // Determine those that are mutually exclusive first, then check edges for 'ACCESS'.
+                    // For those that have 'ACCESS', check if it is in the master category component list.
+                    // If they exist in the list, assign the same parent category.
+                    // Skipping those nodes which category is not a master category, as it will be filled by checking the edges of those with master categories.
+                    const nodeProps = node_.nodeProperties;
+                    if (nodeProps){
+                        const nodeCat_ = nodeProps.cat;
+                        if (nodeCat_ && Object.keys(masterComponentParentList).includes(nodeCat_)){ // Node category is a master category
+                            // console.log(node_);
+                            const nodeProperties = {
+                                edges: nodeProps.edges,
+                                cat: nodeCat_,
+                                pcat: nodeCat_
+                            };
+                            newNode.nodeProperties = nodeProperties;
+                            newNodes.push(newNode);
+                            processedNodeIds.push(node_.id);
+    
+                            const cNodeEdges_ = newNode.nodeProperties.edges;
+                            if (cNodeEdges_){
+                                for (let e=0; e<cNodeEdges_.length; e++){
+                                    const edge_ = (newEdges as ResidentialGraphEdgeData[]).find(e_ => e_.id == cNodeEdges_[e]);
+                                    const edgeCat_ = edge_?.edgeProperties.cat;
+                                    if (edgeCat_){
+                                        var oNode_: ResidentialGraphNodeData | undefined;
+                                        // Determine whether other node being considered is source or target node
+                                        if (node_.id == edge_.sourceNodeId) { // Current node is source node, other node is target node
+                                            oNode_ = nodes.find(n => n.id == edge_.targetNodeId);
+                                        }
+    
+                                        else {
+                                            oNode_ = nodes.find(n => n.id == edge_.sourceNodeId);
+                                        }
+                                        // console.log(newNode)
+                                        // console.log(oNode_)
+                                        // Find master category of oNode
+                                        if (oNode_ && oNode_.nodeProperties){
+                                            if (processedNodeIds.includes(oNode_.id)){continue}
+                                            const newONode: ResidentialGraphNodeData = { id: oNode_.id, label: oNode_.label, graphId: oNode_.graphId};
+                                            const oNodeProps_ = oNode_.nodeProperties;
+                                            const subCategories = masterComponentParentList[nodeCat_ as keyof typeof masterComponentParentList];
+                                            if (subCategories && subCategories.includes(oNodeProps_.cat)){
+                                                const nodeProperties = {
+                                                    edges: oNodeProps_.edges,
+                                                    cat: oNodeProps_.cat,
+                                                    pcat: nodeCat_
+                                                };
+                                                newONode.nodeProperties = nodeProperties;
+                                                newNodes.push(newONode);
+                                                processedNodeIds.push(newONode.id);
+                                            }
                                         }
                                     }
                                 }
@@ -182,45 +187,47 @@ const Graph: React.FC<ResidentialGraphData> = ({ id, nodes, edges, graphProperti
                         }
                     }
                 }
-            }
-
-            // At this point, those that belong in the same master categories and have direct access should have pcat already assigned.
-            const remainingNodes_ = nodes.map((n) => {
-                if (!(processedNodeIds.includes(n.id))){
-                    return n;
-                }
-            });
-
-            for (let n=0; n<remainingNodes_.length; n++){
-                const rNode_ = remainingNodes_[n];
-                if (rNode_){
-                    const newONode: ResidentialGraphNodeData = { id: rNode_.id, label: rNode_.label, graphId: rNode_.graphId};
-                    if (rNode_.nodeProperties){
-                        const nodeProperties = {
-                            edges: rNode_.nodeProperties.edges,
-                            cat: rNode_.nodeProperties.cat,
-                            pcat: rNode_.nodeProperties.cat
-                        };
-                        newONode.nodeProperties = nodeProperties;
-                        newNodes.push(newONode);
-                        processedNodeIds.push(newONode.id);
+    
+                // console.log(newNodes)
+                // At this point, those that belong in the same master categories and have direct access should have pcat already assigned.
+                const remainingNodes_ = nodes.map((n) => {
+                    if (!(processedNodeIds.includes(n.id))){
+                        return n;
+                    }
+                });
+                for (let n=0; n<remainingNodes_.length; n++){
+                    const rNode_ = remainingNodes_[n];
+                    if (rNode_){
+                        const newONode: ResidentialGraphNodeData = { id: rNode_.id, label: rNode_.label, graphId: rNode_.graphId};
+                        if (rNode_.nodeProperties){
+                            // if (rNode_.nodeProperties.cat == 'W/C (toilet + sink only)' || rNode_.nodeProperties.cat == 'wc'){console.log(rNode_)}
+                            const nodeProperties = {
+                                edges: rNode_.nodeProperties.edges,
+                                cat: rNode_.nodeProperties.cat,
+                                pcat: rNode_.nodeProperties.cat
+                            };
+                            newONode.nodeProperties = nodeProperties;
+                            newNodes.push(newONode);
+                            processedNodeIds.push(newONode.id);
+                        }
                     }
                 }
-            }
-            
-            // Just to ensure all nodes are accounted for
-            const unprocessedNodes_ = newNodes.find((n) => {
-                if (!(nodeIds.includes(n.id))){
-                    return n;
+                
+                // Just to ensure all nodes are accounted for
+                const unprocessedNodes_ = newNodes.find((n) => {
+                    if (!(nodeIds.includes(n.id))){
+                        return n;
+                    }
+                })
+    
+                if (unprocessedNodes_){
+                    emit<NotifyHandler>('NOTIFY', true, "Auto parent category assigning went wrong");
                 }
+    
+                updateGraphData(id, newNodes);
+                setNodesDropdownOpen(true);
             })
 
-            if (unprocessedNodes_){
-                emit<NotifyHandler>('NOTIFY', true, "Auto parent category assigning went wrong");
-            }
-
-            updateGraphData(id, newNodes);
-            setNodesDropdownOpen(true);
         }
     }
 
@@ -236,7 +243,7 @@ const Graph: React.FC<ResidentialGraphData> = ({ id, nodes, edges, graphProperti
           window.removeEventListener('auto-parents', handleAutoParents);
         };
 
-    }, [id, useNodeLabels, nodes, edges, graphs, mode]); // Dependencies include 'id' to reattach if the graph id changes
+    }, [id, useNodeLabels, graphs, nodes, edges, mode]);
 
     return (
         <div id={`graph-${id}`} className="bg-white p-4 shadow-md rounded-md">

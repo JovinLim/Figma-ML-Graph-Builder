@@ -709,19 +709,21 @@ const EventDispatcher: React.FC = () => {
       const graph_ = graphs.find((g) => g.id === graphId);
       if (graph_){
         const nodes = graph_.nodes;
+        const nodeIds = graph_.nodes.map(n => n.id);
+        const gNodeIds = [] as string[][]
         for (let n=0; n<nodes.length; n++){
             const node_ = nodes[n];
-            const gNodeIds = nodes
-            .filter((node) => node.id !== node_.id)
-            .map((node) => node.id);
-            emit<AutoEdgeHandler>('AUTO_EDGE', graphId, node_.id, gNodeIds);
+            gNodeIds.push(nodes
+              .filter((node) => node.id !== node_.id)
+              .map((node) => node.id))
         }
+        emit<AutoEdgeHandler>('AUTO_EDGE', graphId, nodeIds, gNodeIds);
       }
     }
   }
 
   // Handle messages from the Figma plugin
-  window.onmessage = (event) => {
+  window.onmessage = async (event) => {
     console.log('Received message:', event);
 
     // Ensure the message format is correct
@@ -729,6 +731,7 @@ const EventDispatcher: React.FC = () => {
 
     if (type === 'add-nodes') {
       // Dispatch 'receive-nodes-data' event
+      console.log("Received nodes data");
       const receivedNodesDataEvent = new CustomEvent('receive-nodes-data', {
         detail: {
           graphId,
@@ -739,99 +742,102 @@ const EventDispatcher: React.FC = () => {
     }
 
     else if (type === 'add-edges' || type === 'auto-edges') {
-      // console.log(`Adding edges to graph ${graphId}`);
+      console.log(`Adding edges to graph ${graphId}`);
       const newEdges = [] as ResidentialGraphEdgeData[];
     
       for (let n = 0; n < rNodes.length; n++) {
-        const node = rNodes[n];
-        const { tNodeId, tNodeName, graphId, nodeId } = node; // Destructure node data
-        
-        const graph_ = graphs.find((g) => g.id===graphId);
-
-        // Find source and target nodes using their IDs
-        const sourceNode = (graph_ as ResidentialGraphData).nodes.find((n:ResidentialGraphNodeData) => n.id === nodeId);
-        const targetNode = (graph_ as ResidentialGraphData).nodes.find((n:ResidentialGraphNodeData) => n.id === tNodeId);
-    
-        let edgeCat = DefaultResidentialEdgeCategory['Direct Access']; // Default edge category
-        if (sourceNode && targetNode) {
-          const sourceCat = sourceNode.nodeProperties?.cat;
-          const targetCat = targetNode.nodeProperties?.cat;
-          if (!sourceCat || !targetCat) {
-            continue
-          }
-
-          if (sourceCat == targetCat) {
-            edgeCat = ResidentialEdgeCategories['Direct Access'];
-          }
-
-          // Check if one of the node categories is in ExternalUnitCategories and the other is not
-          if (
-            (ExternalUnitCategories.includes(sourceCat) && 
-              !ExternalUnitCategories.includes(targetCat))||
-            (!ExternalUnitCategories.includes(sourceCat) && 
-              ExternalUnitCategories.includes(targetCat))||
-            (WalledCategories.includes(sourceCat) && 
-              !WalledCategories.includes(targetCat))||
-            (!WalledCategories.includes(sourceCat) && 
-            WalledCategories.includes(targetCat))
-          ) {
-            // Check if one of the node categories is ExternalUnitCategories and one is entrance -> direct access
-            if (
-              (sourceCat.toLowerCase() == 'entrance' && ExternalUnitCategories.includes(targetCat)) ||
-              (targetCat.toLowerCase() == 'entrance' && ExternalUnitCategories.includes(sourceCat))
-            ) {
-              edgeCat = ResidentialEdgeCategories['Door'];
+        const rNodes_ = rNodes[n];
+        for (let r=0; r < rNodes_.length; r++){
+          const node = rNodes_[r];
+          const { tNodeId, tNodeName, graphId, nodeId } = node; // Destructure node data
+          const graph_ = graphs.find((g) => g.id===graphId);
+  
+          // Find source and target nodes using their IDs
+          const sourceNode = (graph_ as ResidentialGraphData).nodes.find((n:ResidentialGraphNodeData) => n.id === nodeId);
+          const targetNode = (graph_ as ResidentialGraphData).nodes.find((n:ResidentialGraphNodeData) => n.id === tNodeId);
+      
+          let edgeCat = DefaultResidentialEdgeCategory['Direct Access']; // Default edge category
+          if (sourceNode && targetNode) {
+            const sourceCat = sourceNode.nodeProperties?.cat;
+            const targetCat = targetNode.nodeProperties?.cat;
+            if (!sourceCat || !targetCat) {
+              continue
             }
-
-            else {
+  
+            if (sourceCat == targetCat) {
+              edgeCat = ResidentialEdgeCategories['Direct Access'];
+            }
+  
+            // Check if one of the node categories is in ExternalUnitCategories and the other is not
+            if (
+              (ExternalUnitCategories.includes(sourceCat) && 
+                !ExternalUnitCategories.includes(targetCat))||
+              (!ExternalUnitCategories.includes(sourceCat) && 
+                ExternalUnitCategories.includes(targetCat))||
+              (WalledCategories.includes(sourceCat) && 
+                !WalledCategories.includes(targetCat))||
+              (!WalledCategories.includes(sourceCat) && 
+              WalledCategories.includes(targetCat))
+            ) {
+              // Check if one of the node categories is ExternalUnitCategories and one is entrance -> direct access
+              if (
+                (sourceCat.toLowerCase() == 'entrance' && ExternalUnitCategories.includes(targetCat)) ||
+                (targetCat.toLowerCase() == 'entrance' && ExternalUnitCategories.includes(sourceCat))
+              ) {
+                edgeCat = ResidentialEdgeCategories['Door'];
+              }
+  
+              else {
+                // If one of the nodes is in ExternalUnitCategories and the other is not, assign 'Adjacent' category
+                edgeCat = ResidentialEdgeCategories['Adjacent'];
+              }
+            }
+  
+            // Check if one of node categories is ac ledge and other is anything other than balcony -> adjacent
+            else if (
+              (sourceCat.toLowerCase() == 'ac ledge' && targetCat.toLowerCase() !== "balcony") ||
+              (targetCat.toLowerCase() == 'ac ledge' && sourceCat.toLowerCase() !== 'balcony')
+            ) {
               // If one of the nodes is in ExternalUnitCategories and the other is not, assign 'Adjacent' category
               edgeCat = ResidentialEdgeCategories['Adjacent'];
             }
+  
+            // Check if one of node categories is balcony and the other is living room -> door
+            else if (
+              (sourceCat.toLowerCase() == 'living room' && targetCat.toLowerCase() == "balcony") ||
+              (targetCat.toLowerCase() == 'living room' && sourceCat.toLowerCase() == 'balcony')
+            ) {
+              // If one of the nodes is in ExternalUnitCategories and the other is not, assign 'Adjacent' category
+              edgeCat = ResidentialEdgeCategories['Door'];
+            }
           }
-
-          // Check if one of node categories is ac ledge and other is anything other than balcony -> adjacent
-          else if (
-            (sourceCat.toLowerCase() == 'ac ledge' && targetCat.toLowerCase() !== "balcony") ||
-            (targetCat.toLowerCase() == 'ac ledge' && sourceCat.toLowerCase() !== 'balcony')
-          ) {
-            // If one of the nodes is in ExternalUnitCategories and the other is not, assign 'Adjacent' category
-            edgeCat = ResidentialEdgeCategories['Adjacent'];
-          }
-
-          // Check if one of node categories is balcony and the other is living room -> door
-          else if (
-            (sourceCat.toLowerCase() == 'living room' && targetCat.toLowerCase() == "balcony") ||
-            (targetCat.toLowerCase() == 'living room' && sourceCat.toLowerCase() == 'balcony')
-          ) {
-            // If one of the nodes is in ExternalUnitCategories and the other is not, assign 'Adjacent' category
-            edgeCat = ResidentialEdgeCategories['Door'];
-          }
+      
+          // Construct new edge data
+          const newEdge: ResidentialGraphEdgeData = {
+            id: generateUUID(),
+            graphId: graphId,
+            sourceNodeId: nodeId, // Source node is the nodeId
+            targetNodeId: tNodeId, // Target node is the tNodeId
+            edgeProperties: {
+              cat: edgeCat, // Set the determined edge category
+            },
+          };
+          newEdges.push(newEdge);
         }
-    
-        // Construct new edge data
-        const newEdge: ResidentialGraphEdgeData = {
-          id: generateUUID(),
-          graphId: graphId,
-          sourceNodeId: nodeId, // Source node is the nodeId
-          targetNodeId: tNodeId, // Target node is the tNodeId
-          edgeProperties: {
-            cat: edgeCat, // Set the determined edge category
-          },
-        };
-    
-        newEdges.push(newEdge);
       }
-    
-      updateGraphData(graphId, [], newEdges);
 
-      // After adding edges, trigger event for graph to automatically add parents
       if (mode == "autoParents"){
         const autoParentsTrigger = new CustomEvent('auto-parents', {
           detail: {
             graphId,
+            newEdges
           },
         });
         window.dispatchEvent(autoParentsTrigger);
+      }
+
+      else {
+        updateGraphData(graphId, [], newEdges)
       }
     }
 
@@ -1056,8 +1062,7 @@ const GraphActionButtons: React.FC<GraphActionButtonsProps> = () => {
   const { graphs, createGraph, highlightedNodes,  setHighlightedNodes, setCurrentGraph, setMode} = useGraphContext(); // Use the context to get the createGraph function
 
   const handleCreateGraph = () => {
-    const newGraphId = createGraph(); // Create the new graph
-    setCurrentGraph(newGraphId); // Set the current graph ID to the newly created graph
+    const res = createGraph().then(newGraphId => setCurrentGraph(newGraphId)); // Create the new graph
     setMode('input'); // Change the mode to 'input' to render InputContainer
   };
 
