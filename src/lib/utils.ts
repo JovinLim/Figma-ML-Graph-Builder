@@ -58,6 +58,8 @@ export const widthToHeightRatio = 4/3;
 export const UIHeight = 600;
 export const UIWidth = widthToHeightRatio*UIHeight;
 export const pixelToMM= 0.2645;
+export const pixelToM= 0.000264583;
+export const drawingScale = 0.005; // 1/200
 
 export const teamMembers = [
   'Jovin',

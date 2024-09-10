@@ -266,7 +266,10 @@ const GraphNode: React.FC<ResidentialGraphNodeData> = ({ id, label, graphId, nod
       {/* Node header with toggle button */}
       <button
         className="w-full text-left font-bold text-md mb-1"
-        onClick={() => toggleDropdown(nodeDropdownRef.current)}
+        onClick={() => {
+          toggleDropdown(nodeDropdownRef.current)
+          setIsOpen(!isOpen)
+        }}
       >
         {isOpen ? '▼' : '▶'} Node: {label} (ID: {id})
       </button>

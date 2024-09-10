@@ -8,6 +8,7 @@ export interface ResidentialGraphData extends GraphData {
     nodes: ResidentialGraphNodeData[]; // Override nodes with ResidentialGraphNodeData
     edges: ResidentialGraphEdgeData[];
     graphProperties: ResidentialGraphProperties | null;
+    area?:number;
 }
 
 export interface ResidentialGraphJSONData {

@@ -2,6 +2,7 @@ import { GraphProperties } from "../../../core";
 
 export interface ResidentialGraphProperties extends GraphProperties {
     br?: number
+    unit_type?: string
     descriptor?: string
     attachment?: string
     area?: number
@@ -33,6 +34,7 @@ export interface GraphGlobalProperties {
     'comments':string[],
     'annotators':string[],
     'project':string,
+    'unit_type':string,
 }
 
 export const defaultAreaUnit = 'sqm';

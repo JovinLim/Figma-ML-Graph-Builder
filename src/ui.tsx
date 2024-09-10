@@ -15,8 +15,8 @@ import '!./output.css'
 import styles from './styles.css'
 import { AddNodeHandler, AutoEdgeHandler, DehighlightAllNodesHandler, DehighlightNodesHandler, ExportGraphJSON, InsertCodeHandler, NotifyHandler } from './types'
 import Graph from './components/Graph'
-import { generateUUID, getRandomColor, toggleDropdown, UIHeight, UIWidth } from './lib/utils'
-import { DefaultResidentialEdgeCategory, ResidentialGraphData, ResidentialGraphEdgeData, ResidentialGraphJSONData, ResidentialGraphNodeData, ResidentialGraphNodeProperties, ResidentialGraphNodeJSONData, ResidentialGraphEdgeJSONData, ResidentialGraphProperties, ExternalUnitCategories, ResidentialEdgeCategories, ResidentialGraphDescriptor, ResidentialGraphAttachment, GraphGlobalProperties, defaultAreaUnit, ResidentialNodeCategories } from './lib/types'
+import { drawingScale, generateUUID, getRandomColor, pixelToM, toggleDropdown, UIHeight, UIWidth } from './lib/utils'
+import { DefaultResidentialEdgeCategory, ResidentialGraphData, ResidentialGraphEdgeData, ResidentialGraphJSONData, ResidentialGraphNodeData, ResidentialGraphNodeProperties, ResidentialGraphNodeJSONData, ResidentialGraphEdgeJSONData, ResidentialGraphProperties, ExternalUnitCategories, ResidentialEdgeCategories, ResidentialGraphDescriptor, ResidentialGraphAttachment, GraphGlobalProperties, defaultAreaUnit, ResidentialNodeCategories, nonGFACategories, WalledCategories } from './lib/types'
 import { FigmaNodeGeometryData, GraphData, GraphEdgeData, GraphNodeData } from './lib/core'
 import { GraphProvider, useGraphContext } from './components/GraphContext'
 import React, { ChangeEvent, createPortal } from 'preact/compat'
@@ -113,6 +113,7 @@ const InputContainer: React.FC<InputContainerProps> = () => {
   // For annotators
   const [annotators, setAnnotators] = useState<JSX.Element[]>([]); // State to hold the names
   const [annotatorInputValue, setAnnotatorInputValue] = useState<string>(''); // State to hold input value
+  const [remainingAnnotators, setRemainingAnnotators] = useState<string[]>([]); // Annotators to be processed
 
   // For comments
   const [comments, setComments] = useState<JSX.Element[]>([]); // State to hold the names
@@ -134,6 +135,7 @@ const InputContainer: React.FC<InputContainerProps> = () => {
   // Function to handle adding a new annotator
   const handleAddAnnotator = () => {
     if (annotatorInputValue.trim() !== '') {
+      const annotatorName = annotatorInputValue.trim();
       const randomColor = getRandomColor(); // Generate random color
       const annotatorDiv = (
         <div
@@ -272,13 +274,14 @@ const InputContainer: React.FC<InputContainerProps> = () => {
   };
 
   const handleInputConfirm = (newName: string, graphScale: number, graphProject:string, 
-                              graphBR: number, graphDescriptor:string, graphAttachment:string, 
-                              graphLevels:number[], graphComments:string[], graphAnnotators:string[]) => {
+                              graphBR: number, graphUnitType:string ,graphDescriptor:string, 
+                              graphAttachment:string, graphLevels:number[], graphComments:string[],
+                              graphAnnotators:string[]) => {
     if (currentGraph){
       // Update the graph properties with the new name and switch back to 'default' mode
       updateGraphProps(currentGraph, { name: newName, scale:graphScale, project: graphProject, 
-                                       br:graphBR, descriptor:graphDescriptor, attachment:graphAttachment, 
-                                       levels:graphLevels, comments:graphComments, annotators:graphAnnotators} as ResidentialGraphProperties); // Assuming the graph properties include 'name'
+                                       br:graphBR, unit_type: graphUnitType, descriptor:graphDescriptor, 
+                                       attachment:graphAttachment, levels:graphLevels, comments:graphComments, annotators:graphAnnotators} as ResidentialGraphProperties); // Assuming the graph properties include 'name'
       setMode('default');
     }
   };
@@ -288,6 +291,7 @@ const InputContainer: React.FC<InputContainerProps> = () => {
     const scaleInput = document.getElementById('graphScaleInput') as HTMLInputElement;
     const projectInput = document.getElementById('graphProjectInput') as HTMLInputElement;
     const BRInput = document.getElementById('graphBRInput') as HTMLInputElement;
+    const unitTypeInput = document.getElementById('graphUTInput') as HTMLInputElement;
     const DescriptorInput = document.getElementById('graphDescriptorInput') as HTMLInputElement;
     const AttachmentInput = document.getElementById('graphAttachmentInput') as HTMLInputElement;
     const levelLowerInput = document.getElementById('graphLevelLowerInput') as HTMLInputElement;
@@ -299,6 +303,7 @@ const InputContainer: React.FC<InputContainerProps> = () => {
         const graphProject = projectInput.value;
         const graphScale = Number(scaleInput.value);
         const graphBR = Number(BRInput.value);
+        const graphUnitType = unitTypeInput.value;
         const graphDescriptor = DescriptorInput.value;
         const graphAttachment = AttachmentInput.value;
         const graphLevelLower = Number(levelLowerInput.value);
@@ -308,6 +313,7 @@ const InputContainer: React.FC<InputContainerProps> = () => {
         else if (typeof graphScale !== "number" || graphScale==0){emit<NotifyHandler>('NOTIFY', true, "Please input a valid number for scale."); return;} // Scale check
         else if (graphProject == "" || graphProject == undefined || graphProject == null) {emit<NotifyHandler>('NOTIFY', true, "Please input valid text project name."); return;} // Project name check
         else if (typeof graphBR !== "number" || graphBR==0 || !Number.isInteger(graphBR)){emit<NotifyHandler>('NOTIFY', true, "Please input a valid integer for bedrooms."); return;} // Bedrooms check
+        else if (graphUnitType == "" || graphUnitType == undefined || graphUnitType == null) {emit<NotifyHandler>('NOTIFY', true, "Please input valid text as unit type."); return;} // Descriptor check
         else if (graphDescriptor == "" || graphDescriptor == undefined || graphDescriptor == null) {emit<NotifyHandler>('NOTIFY', true, "Please input valid descriptor."); return;} // Descriptor check
         else if (graphAttachment == "" || graphAttachment == undefined || graphAttachment == null) {emit<NotifyHandler>('NOTIFY', true, "Please input valid attachment."); return;} // Attachment check
         else if (graphLevelLower == 0 || graphLevelUpper == 0 || graphLevelLower == undefined || graphLevelUpper == undefined || !Number.isInteger(graphLevelLower) || !Number.isInteger(graphLevelUpper)) {emit<NotifyHandler>('NOTIFY', true, "Please ensure upper and lower bound for levels are valid integers."); return;}
@@ -329,7 +335,7 @@ const InputContainer: React.FC<InputContainerProps> = () => {
           graphAnnotators.push(name_);
         }
 
-        handleInputConfirm(graphName, graphScale, graphProject, graphBR, graphDescriptor, graphAttachment, [graphLevelLower, graphLevelUpper], graphComments, graphAnnotators);
+        handleInputConfirm(graphName, graphScale, graphProject, graphBR, graphUnitType, graphDescriptor, graphAttachment, [graphLevelLower, graphLevelUpper], graphComments, graphAnnotators);
       }
 
       catch {
@@ -354,6 +360,7 @@ const InputContainer: React.FC<InputContainerProps> = () => {
       const AttachmentInput = document.getElementById('graphAttachmentInput') as HTMLInputElement;
       const levelLowerInput = document.getElementById('graphLevelLowerInput') as HTMLInputElement;
       const levelUpperInput = document.getElementById('graphLevelUpperInput') as HTMLInputElement;
+      const unitTypeInput = document.getElementById('graphUTInput') as HTMLInputElement;
       
       const graph_ = graphs.find((g) => g.id===currentGraph);
       if (graph_) {
@@ -362,23 +369,22 @@ const InputContainer: React.FC<InputContainerProps> = () => {
           if (graphProps_.name){nameInput.value = graphProps_.name ? graphProps_.name as string : "";}
           if (graphProps_.scale){scaleInput.value = graphProps_.scale ? (graphProps_.scale).toString() as string : "";}
           if (graphProps_.project){projectInput.value = graphProps_.project ? graphProps_.project as string : "";}
+          if (graphProps_.unit_type){unitTypeInput.value = graphProps_.unit_type ? graphProps_.unit_type as string : "";}
           if (graphProps_.br){BRInput.value = graphProps_.br ? (graphProps_.br).toString() as string : "";}
-          // if (graphProps_.descriptor){DescriptorInput.value = graphProps_.descriptor ? (graphProps_.descriptor) as string : "";}
           if (graphProps_.descriptor){setDInputValue(graphProps_.descriptor ? (graphProps_.descriptor) as string : "");}
-          // if (graphProps_.attachment){AttachmentInput.value = graphProps_.attachment ? graphProps_.attachment as string : "";}
           if (graphProps_.attachment){setAInputValue(graphProps_.attachment ? graphProps_.attachment as string : "");}
           if (graphProps_.levels){levelLowerInput.value = graphProps_.levels ? graphProps_.levels[0].toString() as string : "";}
           if (graphProps_.levels){levelUpperInput.value = graphProps_.levels ? graphProps_.levels[1].toString() as string : "";}
     
-          if (graphProps_.annotators){
-            const graphAnnotators = graphProps_.annotators as string[];
-            if (graphAnnotators.length > 0){
-              for (let ga=0; ga < graphAnnotators.length; ga++){
-                setAnnotatorInputValue(graphAnnotators[ga])
-                handleAddAnnotator()
-              }
-            }
-          }
+          // if (graphProps_.annotators){
+          //   const graphAnnotators = graphProps_.annotators as string[];
+          //   if (graphAnnotators.length > 0){
+          //     for (let ga=0; ga < graphAnnotators.length; ga++){
+          //       setAnnotatorInputValue(graphAnnotators[ga])
+          //       handleAddAnnotator()
+          //     }
+          //   }
+          // }
     
           if (graphProps_.comments){
             const graphComments = graphProps_.comments;
@@ -403,11 +409,39 @@ const InputContainer: React.FC<InputContainerProps> = () => {
       const levelLowerInput = document.getElementById('graphLevelLowerInput') as HTMLInputElement;
       const levelUpperInput = document.getElementById('graphLevelUpperInput') as HTMLInputElement;
       nameInput.value = "Lorem Ipsum";
-      scaleInput.value = ((0.26458*200)/1000).toString();
+      scaleInput.value = (pixelToM/drawingScale).toString();
       projectInput.value = "Avenue South Residence";
       BRInput.value = "1";
+      // setRemainingAnnotators(["jo"]);
     }
   }, [currentGraph, mode]); // Run this effect only once when the component mounts
+
+  useEffect(() => {
+    const graph_ = graphs.find((g) => g.id===currentGraph);
+    if (graph_) {
+      const graphProps_ = graph_.graphProperties as ResidentialGraphProperties;
+      if (graphProps_ && graphProps_.annotators){
+        const graphAnnotators = graphProps_.annotators as string[];
+        if (graphAnnotators.length > 0) {
+          setRemainingAnnotators(graphAnnotators); // Set remaining annotators to process
+        }
+      }
+    }
+  }, [graphs]);
+
+  useEffect(() => {
+    if (annotatorInputValue && remainingAnnotators.length > 0) {
+      handleAddAnnotator(); // Call function to add annotator
+    }
+  }, [annotatorInputValue]); // Dependency array on input value
+
+  useEffect(() => {
+    if (remainingAnnotators.length > 0) {
+      const nextAnnotator = remainingAnnotators[0];
+      setAnnotatorInputValue(nextAnnotator); // Set input value to trigger add
+      setRemainingAnnotators((prev) => prev.slice(1)); // Remove the processed annotator
+    }
+  }, [remainingAnnotators]);
 
   return (
     <div className="" style={{ padding: '16px', textAlign: 'left', maxWidth:'100%', maxHeight:'100%', height:'100%', width:'100%'}}>
@@ -454,6 +488,17 @@ const InputContainer: React.FC<InputContainerProps> = () => {
               style={{ width: '20%', padding: '8px', border: '1px solid black' }}
               data-prop="br"
               placeholder="Number of bedrooms..." />
+          </div>
+
+          {/* UNIT TYPE PROPERTY */}
+          <div id='graphUTContainer' style={{alignItems: 'center'}} className="flex">
+            <p style={{width: '20%', textAlign: 'left', fontSize:'12px'}}>Unit Type</p>
+            <input 
+              type="text" 
+              id="graphUTInput" 
+              style={{ width: '20%', padding: '8px', border: '1px solid black' }}
+              data-prop="br"
+              placeholder="Unit type..." />
           </div>
 
           {/* LEVELS PROPERTY */}
@@ -660,6 +705,7 @@ const EventDispatcher: React.FC = () => {
   const handleOneClickEdges = (event: Event) => {
     const { graphId } = (event as CustomEvent).detail;
     if (mode==='one-click') {
+      setMode('autoParents');
       const graph_ = graphs.find((g) => g.id === graphId);
       if (graph_){
         const nodes = graph_.nodes;
@@ -671,36 +717,8 @@ const EventDispatcher: React.FC = () => {
             emit<AutoEdgeHandler>('AUTO_EDGE', graphId, node_.id, gNodeIds);
         }
       }
-      setMode('default')
     }
   }
-
-  const handleKeyPress = (event: KeyboardEvent) => {
-    if (event.key === 'Enter') {
-      switch(mode) {
-        case 'add-nodes':
-          if (currentGraph){
-            const nodesAddedEvent = new CustomEvent('nodes-added', {
-              detail: {
-                currentGraph,
-              },
-            });
-            window.dispatchEvent(nodesAddedEvent);
-          }
-          break;
-        case 'add-edges':
-          if (currentGraph){
-            const edgesAddedEvent = new CustomEvent('edges-added', {
-              detail: {
-                currentGraph,
-              },
-            });
-            window.dispatchEvent(edgesAddedEvent);
-          }
-          break;
-      }
-    }
-  };
 
   // Handle messages from the Figma plugin
   window.onmessage = (event) => {
@@ -721,7 +739,7 @@ const EventDispatcher: React.FC = () => {
     }
 
     else if (type === 'add-edges' || type === 'auto-edges') {
-      console.log(`Adding edges to graph ${graphId}`);
+      // console.log(`Adding edges to graph ${graphId}`);
       const newEdges = [] as ResidentialGraphEdgeData[];
     
       for (let n = 0; n < rNodes.length; n++) {
@@ -738,43 +756,56 @@ const EventDispatcher: React.FC = () => {
         if (sourceNode && targetNode) {
           const sourceCat = sourceNode.nodeProperties?.cat;
           const targetCat = targetNode.nodeProperties?.cat;
+          if (!sourceCat || !targetCat) {
+            continue
+          }
+
+          if (sourceCat == targetCat) {
+            edgeCat = ResidentialEdgeCategories['Direct Access'];
+          }
 
           // Check if one of the node categories is in ExternalUnitCategories and the other is not
           if (
-            sourceCat &&
-            targetCat &&
-            ((ExternalUnitCategories[sourceCat as keyof typeof ExternalUnitCategories] && 
-              !ExternalUnitCategories[targetCat as keyof typeof ExternalUnitCategories]) ||
-             (!ExternalUnitCategories[sourceCat as keyof typeof ExternalUnitCategories] && 
-              ExternalUnitCategories[targetCat as keyof typeof ExternalUnitCategories]))
+            (ExternalUnitCategories.includes(sourceCat) && 
+              !ExternalUnitCategories.includes(targetCat))||
+            (!ExternalUnitCategories.includes(sourceCat) && 
+              ExternalUnitCategories.includes(targetCat))||
+            (WalledCategories.includes(sourceCat) && 
+              !WalledCategories.includes(targetCat))||
+            (!WalledCategories.includes(sourceCat) && 
+            WalledCategories.includes(targetCat))
           ) {
-            // If one of the nodes is in ExternalUnitCategories and the other is not, assign 'Adjacent' category
-            edgeCat = ResidentialEdgeCategories['Adjacent'];
+            // Check if one of the node categories is ExternalUnitCategories and one is entrance -> direct access
+            if (
+              (sourceCat.toLowerCase() == 'entrance' && ExternalUnitCategories.includes(targetCat)) ||
+              (targetCat.toLowerCase() == 'entrance' && ExternalUnitCategories.includes(sourceCat))
+            ) {
+              edgeCat = ResidentialEdgeCategories['Door'];
+            }
+
+            else {
+              // If one of the nodes is in ExternalUnitCategories and the other is not, assign 'Adjacent' category
+              edgeCat = ResidentialEdgeCategories['Adjacent'];
+            }
           }
 
           // Check if one of node categories is ac ledge and other is anything other than balcony -> adjacent
-          if (
-            sourceCat &&
-            targetCat &&
-            ((sourceCat.toLowerCase() == 'ac ledge' && targetCat.toLowerCase() !== "balcony") ||
-             (targetCat.toLowerCase() == 'ac ledge' && sourceCat.toLowerCase() !== 'balcony')
-          )
+          else if (
+            (sourceCat.toLowerCase() == 'ac ledge' && targetCat.toLowerCase() !== "balcony") ||
+            (targetCat.toLowerCase() == 'ac ledge' && sourceCat.toLowerCase() !== 'balcony')
           ) {
             // If one of the nodes is in ExternalUnitCategories and the other is not, assign 'Adjacent' category
             edgeCat = ResidentialEdgeCategories['Adjacent'];
           }
 
-          // Check if one of the node categories is ExternalUnitCategories and one is entrance -> direct access
-          if (
-            sourceCat &&
-            targetCat &&
-            ((sourceCat.toLowerCase() == 'entrance' && ExternalUnitCategories[targetCat as keyof typeof ExternalUnitCategories]) ||
-             (targetCat.toLowerCase() == 'entrance' && ExternalUnitCategories[sourceCat as keyof typeof ExternalUnitCategories])
-          )) {
+          // Check if one of node categories is balcony and the other is living room -> door
+          else if (
+            (sourceCat.toLowerCase() == 'living room' && targetCat.toLowerCase() == "balcony") ||
+            (targetCat.toLowerCase() == 'living room' && sourceCat.toLowerCase() == 'balcony')
+          ) {
             // If one of the nodes is in ExternalUnitCategories and the other is not, assign 'Adjacent' category
             edgeCat = ResidentialEdgeCategories['Door'];
           }
-
         }
     
         // Construct new edge data
@@ -792,6 +823,16 @@ const EventDispatcher: React.FC = () => {
       }
     
       updateGraphData(graphId, [], newEdges);
+
+      // After adding edges, trigger event for graph to automatically add parents
+      if (mode == "autoParents"){
+        const autoParentsTrigger = new CustomEvent('auto-parents', {
+          detail: {
+            graphId,
+          },
+        });
+        window.dispatchEvent(autoParentsTrigger);
+      }
     }
 
     else if (type === 'highlight-nodes'){
@@ -931,9 +972,9 @@ const EventDispatcher: React.FC = () => {
         }
 
         // Instantiate graph global info
-        const graphTotalArea = Object.values(nodesJsonData).reduce((totalArea, node) => {
+        const graphTotalArea = (graph_ as ResidentialGraphData).area ? (graph_ as ResidentialGraphData).area : Object.values(nodesJsonData).reduce((totalArea, node) => {
           // Check if the node's category is not in ExternalUnitCategories before including its area
-          if (!ExternalUnitCategories[(node.pcat ? node.pcat : node.cat) as keyof typeof ExternalUnitCategories]) {
+          if (!ExternalUnitCategories.includes(node.pcat ? node.pcat : node.cat) && !nonGFACategories.includes(node.pcat ? node.pcat : node.cat)) {
             return totalArea + (node.width * node.depth);
           }
           return totalArea; // If it is in the ExternalUnitCategories, do not add its area
@@ -941,6 +982,7 @@ const EventDispatcher: React.FC = () => {
 
         const project_ = (graph_ as ResidentialGraphData)?.graphProperties?.project ? (graph_ as ResidentialGraphData)?.graphProperties?.project : "unknown"
         const br_ = (graph_ as ResidentialGraphData)?.graphProperties?.br ? (graph_ as ResidentialGraphData)?.graphProperties?.br : "unknown"
+        const unitType_ = (graph_ as ResidentialGraphData)?.graphProperties?.unit_type ? (graph_ as ResidentialGraphData)?.graphProperties?.unit_type : "unknown"
         const descriptor_ = (graph_ as ResidentialGraphData)?.graphProperties?.descriptor ? ResidentialGraphDescriptor[(graph_ as ResidentialGraphData)?.graphProperties?.descriptor as keyof typeof ResidentialGraphDescriptor] : "unknown"
         const attachment_ = (graph_ as ResidentialGraphData)?.graphProperties?.attachment ? ResidentialGraphAttachment[(graph_ as ResidentialGraphData)?.graphProperties?.attachment as keyof typeof ResidentialGraphAttachment] : "unknown"
         const levels_ = (graph_ as ResidentialGraphData)?.graphProperties?.levels ? (graph_ as ResidentialGraphData)?.graphProperties?.levels : "unknown"
@@ -956,6 +998,8 @@ const EventDispatcher: React.FC = () => {
           levels: levels_,
           comments: comments,
           annotators: annotators,
+          unit_type: unitType_,
+          scale: drawingScale,
         } as GraphGlobalProperties;
 
         const graphJSON = {
@@ -969,7 +1013,7 @@ const EventDispatcher: React.FC = () => {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `${project_}_${grade_}.json`;
+        a.download = `${project_}_${unitType_}.json`;
         a.click();
         URL.revokeObjectURL(url);
       }
@@ -978,16 +1022,10 @@ const EventDispatcher: React.FC = () => {
 
   // Handle keyboard events
   useEffect(() => {
-
-    window.addEventListener('keydown', handleKeyPress);
-
-
     window.addEventListener('trigger-oneclick-edges', handleOneClickEdges);
-
 
     // Clean up event listener on unmount
     return () => {
-      window.removeEventListener('keydown', handleKeyPress);
       window.removeEventListener('trigger-oneclick-edges', handleOneClickEdges);
     };
   }, [mode,graphs]);

@@ -122,13 +122,13 @@ export const GraphProvider: React.FC<{ children: ReactNode }> = ({ children }) =
               ...existingEdge,
               edgeProperties: newEdge.edgeProperties,
             };
-            console.log(`Edge between ${newEdge.sourceNodeId} and ${newEdge.targetNodeId} was updated with new properties.`);
+            // console.log(`Edge between ${newEdge.sourceNodeId} and ${newEdge.targetNodeId} was updated with new properties.`);
           } else {
-            console.log(`Edge between ${newEdge.sourceNodeId} and ${newEdge.targetNodeId} already exists with the same properties.`);
+            // console.log(`Edge between ${newEdge.sourceNodeId} and ${newEdge.targetNodeId} already exists with the same properties.`);
           }
         } else {
           // Notify the user if the edge does not exist
-          console.log(`Edge between ${newEdge.sourceNodeId} and ${newEdge.targetNodeId} does not exist in graph ${graphId}.`);
+          // console.log(`Edge between ${newEdge.sourceNodeId} and ${newEdge.targetNodeId} does not exist in graph ${graphId}.`);
           emit<NotifyHandler>(
             "NOTIFY",
             true,
@@ -181,9 +181,9 @@ export const GraphProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             if (JSON.stringify(existingEdge.edgeProperties) !== JSON.stringify(newEdge.edgeProperties)) {
               // Replace the existing edge with the new edge
               updatedEdges[existingEdgeIndex] = newEdge;
-              console.log(`Edge between ${newEdge.sourceNodeId} and ${newEdge.targetNodeId} was updated with new properties.`);
+              // console.log(`Edge between ${newEdge.sourceNodeId} and ${newEdge.targetNodeId} was updated with new properties.`);
             } else {
-              console.log(`Edge between ${newEdge.sourceNodeId} and ${newEdge.targetNodeId} already exists with the same properties.`);
+              // console.log(`Edge between ${newEdge.sourceNodeId} and ${newEdge.targetNodeId} already exists with the same properties.`);
             }
             return; // Skip adding this edge if it already exists with the same properties
           }
